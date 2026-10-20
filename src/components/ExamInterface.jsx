@@ -3,8 +3,10 @@ import {
   Clock, Flag, ChevronLeft, ChevronRight, Calculator, CheckCircle2, 
   AlertTriangle, User, HelpCircle, Send, LogOut, Check 
 } from 'lucide-react';
-import { SUBJECTS, QUESTION_BANK } from '../data/questions';
+import { SUBJECTS } from '../data/questions';
+import { getQuestionBank } from '../utils/storage';
 import JambCalculator from './JambCalculator';
+import MathText from './MathText';
 
 export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) {
   const { examType, candidateName, candidateReg, subjects, durationMinutes } = examConfig;
@@ -33,12 +35,16 @@ export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) 
 
   // Compile list of questions for each subject in this exam
   const examQuestionsBySubject = useMemo(() => {
+    if (examConfig.questionsBySubject && Object.keys(examConfig.questionsBySubject).length > 0) {
+      return examConfig.questionsBySubject;
+    }
+    const bank = getQuestionBank();
     const map = {};
     subjects.forEach(subId => {
-      map[subId] = QUESTION_BANK[subId] || [];
+      map[subId] = bank[subId] || [];
     });
     return map;
-  }, [subjects]);
+  }, [subjects, examConfig.questionsBySubject]);
 
   const currentSubjectQuestions = examQuestionsBySubject[activeSubject] || [];
   const currentQIndex = subjectQuestionIndices[activeSubject] || 0;
@@ -320,9 +326,17 @@ export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) 
                 </div>
               </div>
 
+              {/* Comprehension Passage if present */}
+              {currentQuestion.passage && (
+                <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs italic text-slate-300 leading-relaxed">
+                  <span className="font-bold text-sky-400 not-italic mr-1.5">Reading Context / Passage:</span>
+                  <MathText text={currentQuestion.passage} />
+                </div>
+              )}
+
               {/* Question Text */}
               <div className="text-lg sm:text-xl font-medium text-white leading-relaxed">
-                {currentQuestion.question}
+                <MathText text={currentQuestion.question} />
               </div>
 
               {/* Options Cards */}
@@ -348,7 +362,7 @@ export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) 
                         {opt.label}
                       </span>
                       <span className="text-sm sm:text-base pt-1 flex-1 leading-normal">
-                        {opt.text}
+                        <MathText text={opt.text} />
                       </span>
                       {isSelected && (
                         <Check size={18} className="text-sky-400 shrink-0 mt-1" />

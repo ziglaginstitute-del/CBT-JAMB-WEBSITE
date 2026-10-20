@@ -112,61 +112,61 @@ export const QUESTION_BANK = {
       id: 'mth-1',
       subject: 'mathematics',
       difficulty: 'Beginner',
-      question: 'Solve for x in the linear equation: 3(x - 2) + 4 = 2(x + 5)',
+      question: 'Solve for $x$ in the linear equation: $3(x - 2) + 4 = 2(x + 5)$',
       options: [
-        { label: 'A', text: 'x = 8' },
-        { label: 'B', text: 'x = 12' },
-        { label: 'C', text: 'x = 14' },
-        { label: 'D', text: 'x = 10' }
+        { label: 'A', text: '$x = 8$' },
+        { label: 'B', text: '$x = 12$' },
+        { label: 'C', text: '$x = 14$' },
+        { label: 'D', text: '$x = 10$' }
       ],
       correctOption: 'B',
       hint: 'Expand the parentheses on both sides first, then isolate like terms.',
-      explanation: 'Expanding: 3x - 6 + 4 = 2x + 10 => 3x - 2 = 2x + 10. Subtract 2x from both sides: x - 2 = 10. Add 2 to both sides: x = 12.'
+      explanation: 'Expanding: $3x - 6 + 4 = 2x + 10 \\Rightarrow 3x - 2 = 2x + 10$. Subtract $2x$ from both sides: $x - 2 = 10$. Add $2$ to both sides: $x = 12$.'
     },
     {
       id: 'mth-2',
       subject: 'mathematics',
       difficulty: 'Intermediate',
-      question: 'If log₁₀(2) = 0.3010 and log₁₀(3) = 0.4771, calculate the value of log₁₀(18).',
+      question: 'If $\\log_{10}(2) = 0.3010$ and $\\log_{10}(3) = 0.4771$, calculate the value of $\\log_{10}(18)$.',
       options: [
-        { label: 'A', text: '1.2552' },
-        { label: 'B', text: '0.9542' },
-        { label: 'C', text: '1.1761' },
-        { label: 'D', text: '1.0791' }
+        { label: 'A', text: '$1.2552$' },
+        { label: 'B', text: '$0.9542$' },
+        { label: 'C', text: '$1.1761$' },
+        { label: 'D', text: '$1.0791$' }
       ],
       correctOption: 'A',
-      hint: 'Factor 18 into prime factors: 18 = 2 × 3² = 2 × 9.',
-      explanation: 'log₁₀(18) = log₁₀(2 × 3²) = log₁₀(2) + 2·log₁₀(3) = 0.3010 + 2(0.4771) = 0.3010 + 0.9542 = 1.2552.'
+      hint: 'Factor $18$ into prime factors: $18 = 2 \\times 3^2 = 2 \\times 9$.',
+      explanation: '$\\log_{10}(18) = \\log_{10}(2 \\times 3^2) = \\log_{10}(2) + 2\\log_{10}(3) = 0.3010 + 2(0.4771) = 0.3010 + 0.9542 = 1.2552$.'
     },
     {
       id: 'mth-3',
       subject: 'mathematics',
       difficulty: 'Intermediate',
-      question: 'Find the derivative dy/dx of the function: y = 4x³ - 5x² + 7x - 9',
+      question: 'Find the derivative $\\frac{dy}{dx}$ of the function: $y = 4x^3 - 5x^2 + 7x - 9$',
       options: [
-        { label: 'A', text: '12x² - 10x + 7' },
-        { label: 'B', text: '12x³ - 10x² + 7' },
-        { label: 'C', text: '4x² - 5x + 7' },
-        { label: 'D', text: '12x² - 5x' }
+        { label: 'A', text: '$12x^2 - 10x + 7$' },
+        { label: 'B', text: '$12x^3 - 10x^2 + 7$' },
+        { label: 'C', text: '$4x^2 - 5x + 7$' },
+        { label: 'D', text: '$12x^2 - 5x$' }
       ],
       correctOption: 'A',
-      hint: 'Apply the power rule: d/dx [a·x^n] = n·a·x^(n-1).',
-      explanation: 'd/dx (4x³) = 12x², d/dx (-5x²) = -10x, d/dx (7x) = 7, d/dx (-9) = 0. Combining terms gives 12x² - 10x + 7.'
+      hint: 'Apply the power rule: $\\frac{d}{dx}[a x^n] = n a x^{n-1}$.',
+      explanation: '$\\frac{d}{dx}(4x^3) = 12x^2$, $\\frac{d}{dx}(-5x^2) = -10x$, $\\frac{d}{dx}(7x) = 7$, $\\frac{d}{dx}(-9) = 0$. Combining gives $12x^2 - 10x + 7$.'
     },
     {
       id: 'mth-4',
       subject: 'mathematics',
       difficulty: 'Advanced',
-      question: 'A fair die is rolled twice. What is the probability that the sum of the numbers obtained is at least 10?',
+      question: 'A fair die is rolled twice. What is the probability that the sum of the numbers obtained is at least $10$?',
       options: [
-        { label: 'A', text: '1/6' },
-        { label: 'B', text: '1/12' },
-        { label: 'C', text: '5/36' },
-        { label: 'D', text: '7/36' }
+        { label: 'A', text: '$\\frac{1}{6}$' },
+        { label: 'B', text: '$\\frac{1}{12}$' },
+        { label: 'C', text: '$\\frac{5}{36}$' },
+        { label: 'D', text: '$\\frac{7}{36}$' }
       ],
       correctOption: 'A',
-      hint: 'Total possible outcomes = 36. List outcomes where the sum is 10, 11, or 12.',
-      explanation: 'Sum = 10: (4,6), (5,5), (6,4) [3 pairs]. Sum = 11: (5,6), (6,5) [2 pairs]. Sum = 12: (6,6) [1 pair]. Total favorable outcomes = 3 + 2 + 1 = 6. Probability = 6/36 = 1/6.'
+      hint: 'Total possible outcomes $= 36$. List outcomes where the sum is 10, 11, or 12.',
+      explanation: 'Sum = 10: (4,6), (5,5), (6,4) [3 pairs]. Sum = 11: (5,6), (6,5) [2 pairs]. Sum = 12: (6,6) [1 pair]. Total favorable outcomes $= 3 + 2 + 1 = 6$. Probability $= \\frac{6}{36} = \\frac{1}{6}$.'
     },
     {
       id: 'mth-5',
@@ -190,46 +190,46 @@ export const QUESTION_BANK = {
       id: 'phy-1',
       subject: 'physics',
       difficulty: 'Beginner',
-      question: 'A car accelerates uniformly from rest to a velocity of 20 m/s in 5 seconds. What is the acceleration of the car?',
+      question: 'A car accelerates uniformly from rest to a velocity of $20\\text{ m/s}$ in $5\\text{ seconds}$. What is the acceleration of the car?',
       options: [
-        { label: 'A', text: '2 m/s²' },
-        { label: 'B', text: '4 m/s²' },
-        { label: 'C', text: '5 m/s²' },
-        { label: 'D', text: '100 m/s²' }
+        { label: 'A', text: '$2\\text{ m/s}^2$' },
+        { label: 'B', text: '$4\\text{ m/s}^2$' },
+        { label: 'C', text: '$5\\text{ m/s}^2$' },
+        { label: 'D', text: '$100\\text{ m/s}^2$' }
       ],
       correctOption: 'B',
-      hint: 'Use the first equation of linear motion: v = u + at.',
-      explanation: 'Given u = 0 m/s, v = 20 m/s, and t = 5 s: a = (v - u)/t = (20 - 0)/5 = 4 m/s².'
+      hint: 'Use the first equation of linear motion: $v = u + at$.',
+      explanation: 'Given $u = 0\\text{ m/s}$, $v = 20\\text{ m/s}$, and $t = 5\\text{ s}$: $a = \\frac{v - u}{t} = \\frac{20 - 0}{5} = 4\\text{ m/s}^2$.'
     },
     {
       id: 'phy-2',
       subject: 'physics',
       difficulty: 'Intermediate',
-      question: 'An electric kettle rated 2.0 kW is connected to a 240 V mains supply. What is the current drawn by the kettle?',
+      question: 'An electric kettle rated $2.0\\text{ kW}$ is connected to a $240\\text{ V}$ mains supply. What is the current drawn by the kettle?',
       options: [
-        { label: 'A', text: '8.33 A' },
-        { label: 'B', text: '12.0 A' },
-        { label: 'C', text: '0.12 A' },
-        { label: 'D', text: '480 A' }
+        { label: 'A', text: '$8.33\\text{ A}$' },
+        { label: 'B', text: '$12.0\\text{ A}$' },
+        { label: 'C', text: '$0.12\\text{ A}$' },
+        { label: 'D', text: '$480\\text{ A}$' }
       ],
       correctOption: 'A',
-      hint: 'Power formula: P = V × I, remember to convert kW to Watts.',
-      explanation: 'P = 2.0 kW = 2000 W. P = V × I => I = P / V = 2000 / 240 = 8.333 A.'
+      hint: 'Power formula: $P = V \\times I$, remember to convert $\\text{kW}$ to Watts ($1\\text{ kW} = 1000\\text{ W}$).',
+      explanation: '$P = 2.0\\text{ kW} = 2000\\text{ W}$. $P = V \\times I \\Rightarrow I = \\frac{P}{V} = \\frac{2000}{240} \\approx 8.33\\text{ A}$.'
     },
     {
       id: 'phy-3',
       subject: 'physics',
       difficulty: 'Advanced',
-      question: 'A radioactive sample has a half-life of 8 days. If an initial mass of 80 g is stored, what mass remains undecayed after 32 days?',
+      question: 'A radioactive sample has a half-life of $8\\text{ days}$. If an initial mass of $80\\text{ g}$ is stored, what mass remains undecayed after $32\\text{ days}$?',
       options: [
-        { label: 'A', text: '10 g' },
-        { label: 'B', text: '5 g' },
-        { label: 'C', text: '2.5 g' },
-        { label: 'D', text: '1.25 g' }
+        { label: 'A', text: '$10\\text{ g}$' },
+        { label: 'B', text: '$5\\text{ g}$' },
+        { label: 'C', text: '$2.5\\text{ g}$' },
+        { label: 'D', text: '$1.25\\text{ g}$' }
       ],
       correctOption: 'B',
-      hint: 'Determine the number of half-life cycles n = total time / half-life period.',
-      explanation: 'n = 32 / 8 = 4 half-lives. Remaining mass = N₀ / (2^n) = 80 / (2⁴) = 80 / 16 = 5 g.'
+      hint: 'Determine the number of half-life cycles $n = \\frac{\\text{total time}}{\\text{half-life period}}$.',
+      explanation: '$n = \\frac{32}{8} = 4\\text{ half-lives}$. Remaining mass $= \\frac{N_0}{2^n} = \\frac{80}{2^4} = \\frac{80}{16} = 5\\text{ g}$.'
     },
     {
       id: 'phy-4',
@@ -237,14 +237,14 @@ export const QUESTION_BANK = {
       difficulty: 'Intermediate',
       question: 'Which of the following optical instruments produces an upright, magnified, and virtual image?',
       options: [
-        { label: 'A', text: 'Simple microscope (magnifying glass) with object within focal length' },
+        { label: 'A', text: 'Simple microscope (magnifying glass) with object within focal length ($u < f$)' },
         { label: 'B', text: 'Pinhole camera' },
         { label: 'C', text: 'Astronomical telescope in normal adjustment for distant stars' },
         { label: 'D', text: 'Convex mirror' }
       ],
       correctOption: 'A',
       hint: 'Recall ray diagrams for a convex lens when the object is placed between the optical center and principal focus.',
-      explanation: 'When an object is placed inside the focal length (u < f) of a convex lens, rays diverge after refraction, forming an erect, magnified, virtual image on the same side.'
+      explanation: 'When an object is placed inside the focal length ($u < f$) of a convex lens, rays diverge after refraction, forming an erect, magnified, virtual image on the same side.'
     }
   ],
 
@@ -253,52 +253,52 @@ export const QUESTION_BANK = {
       id: 'chm-1',
       subject: 'chemistry',
       difficulty: 'Beginner',
-      question: 'What is the oxidation number of sulfur in sulfuric acid (H₂SO₄)?',
+      question: 'What is the oxidation number of sulfur in sulfuric acid ($\\text{H}_2\\text{SO}_4$)?',
       options: [
-        { label: 'A', text: '+4' },
-        { label: 'B', text: '+6' },
-        { label: 'C', text: '-2' },
-        { label: 'D', text: '+2' }
+        { label: 'A', text: '$+4$' },
+        { label: 'B', text: '$+6$' },
+        { label: 'C', text: '$-2$' },
+        { label: 'D', text: '$+2$' }
       ],
       correctOption: 'B',
-      hint: 'Hydrogen has an oxidation state of +1 and oxygen has -2 in most neutral compounds.',
-      explanation: 'In H₂SO₄: 2(+1) + S + 4(-2) = 0 => 2 + S - 8 = 0 => S - 6 = 0 => S = +6.'
+      hint: 'Hydrogen has an oxidation state of $+1$ and oxygen has $-2$ in most neutral compounds.',
+      explanation: 'In $\\text{H}_2\\text{SO}_4$: $2(+1) + S + 4(-2) = 0 \\Rightarrow 2 + S - 8 = 0 \\Rightarrow S - 6 = 0 \\Rightarrow S = +6$.'
     },
     {
       id: 'chm-2',
       subject: 'chemistry',
       difficulty: 'Intermediate',
-      question: 'Calculate the volume occupied by 8.8 g of carbon(IV) oxide (CO₂) at standard temperature and pressure (s.t.p). [Molar mass of CO₂ = 44 g/mol; Molar volume at s.t.p = 22.4 dm³]',
+      question: 'Calculate the volume occupied by $8.8\\text{ g}$ of carbon(IV) oxide ($\\text{CO}_2$) at standard temperature and pressure (s.t.p). [Molar mass of $\\text{CO}_2 = 44\\text{ g/mol}$; Molar volume at s.t.p = $22.4\\text{ dm}^3$]',
       options: [
-        { label: 'A', text: '4.48 dm³' },
-        { label: 'B', text: '2.24 dm³' },
-        { label: 'C', text: '1.12 dm³' },
-        { label: 'D', text: '8.80 dm³' }
+        { label: 'A', text: '$4.48\\text{ dm}^3$' },
+        { label: 'B', text: '$2.24\\text{ dm}^3$' },
+        { label: 'C', text: '$1.12\\text{ dm}^3$' },
+        { label: 'D', text: '$8.80\\text{ dm}^3$' }
       ],
       correctOption: 'A',
-      hint: 'Number of moles = Mass / Molar Mass. Then Volume = Moles × 22.4 dm³.',
-      explanation: 'Moles of CO₂ = 8.8 / 44 = 0.2 mol. Volume at s.t.p = 0.2 × 22.4 dm³ = 4.48 dm³.'
+      hint: 'Number of moles $n = \\frac{\\text{Mass}}{\\text{Molar Mass}}$. Then Volume $= n \\times 22.4\\text{ dm}^3$.',
+      explanation: 'Moles of $\\text{CO}_2 = \\frac{8.8}{44} = 0.2\\text{ mol}$. Volume at s.t.p $= 0.2 \\times 22.4\\text{ dm}^3 = 4.48\\text{ dm}^3$.'
     },
     {
       id: 'chm-3',
       subject: 'chemistry',
       difficulty: 'Advanced',
-      question: 'Which of the following organic compounds will decolorize acidified potassium tetraoxomanganate(VII) solution without needing sunlight or UV radiation?',
+      question: 'Which of the following organic compounds will decolorize acidified potassium tetraoxomanganate(VII) solution ($\\text{KMnO}_4$) without needing sunlight or UV radiation?',
       options: [
-        { label: 'A', text: 'Ethane' },
-        { label: 'B', text: 'Ethene' },
-        { label: 'C', text: 'Propane' },
-        { label: 'D', text: 'Cyclohexane' }
+        { label: 'A', text: 'Ethane ($\\text{C}_2\\text{H}_6$)' },
+        { label: 'B', text: 'Ethene ($\\text{C}_2\\text{H}_4$)' },
+        { label: 'C', text: 'Propane ($\\text{C}_3\\text{H}_8$)' },
+        { label: 'D', text: 'Cyclohexane ($\\text{C}_6\\text{H}_{12}$)' }
       ],
       correctOption: 'B',
-      hint: 'Unsaturated hydrocarbons with double or triple carbon-carbon bonds readily undergo addition reactions.',
-      explanation: 'Ethene (C₂H₄) is an alkene with an unsaturated double bond that readily undergoes oxidation by acidified KMnO₄ (Baeyer test), decolorizing purple KMnO₄ to colorless Mn²⁺.'
+      hint: 'Unsaturated hydrocarbons with double or triple carbon-carbon bonds ($-\\text{C}=\\text{C}-$) readily undergo addition reactions.',
+      explanation: 'Ethene ($\\text{C}_2\\text{H}_4$) is an alkene with an unsaturated double bond that readily undergoes oxidation by acidified $\\text{KMnO}_4$ (Baeyer test), decolorizing purple $\\text{KMnO}_4$ to colorless $\\text{Mn}^{2+}$.'
     },
     {
       id: 'chm-4',
       subject: 'chemistry',
       difficulty: 'Intermediate',
-      question: 'According to Le Chatelier’s principle, an increase in pressure on the equilibrium system: N₂(g) + 3H₂(g) ⇌ 2NH₃(g) will:',
+      question: 'According to Le Chatelier’s principle, an increase in pressure on the equilibrium system: $\\text{N}_2(g) + 3\\text{H}_2(g) \\rightleftharpoons 2\\text{NH}_3(g)$ will:',
       options: [
         { label: 'A', text: 'Shift the equilibrium position to the right (favoring ammonia production)' },
         { label: 'B', text: 'Shift the equilibrium position to the left' },
@@ -306,8 +306,8 @@ export const QUESTION_BANK = {
         { label: 'D', text: 'Decrease the rate of the forward reaction' }
       ],
       correctOption: 'A',
-      hint: 'Compare the total moles of gaseous reactants (1 + 3 = 4) to gaseous products (2).',
-      explanation: 'Increasing pressure shifts an equilibrium toward the side with fewer gas molecules. Since 4 gas moles react to form 2 gas moles, increasing pressure favors forward reaction.'
+      hint: 'Compare the total moles of gaseous reactants ($1 + 3 = 4$) to gaseous products ($2$).',
+      explanation: 'Increasing pressure shifts equilibrium toward fewer gas moles ($4\\text{ moles} \\to 2\\text{ moles}$), favoring forward reaction.'
     }
   ],
 

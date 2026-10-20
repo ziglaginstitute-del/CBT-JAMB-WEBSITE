@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, XCircle, Lightbulb, ChevronRight, ChevronLeft, 
-  RotateCcw, Sparkles, Filter, Award, AlertCircle 
+  RotateCcw, Sparkles, Filter, Award, AlertCircle, Key, UserCheck, ShieldCheck 
 } from 'lucide-react';
-import { SUBJECTS, DIFFICULTIES, QUESTION_BANK } from '../data/questions';
+import { SUBJECTS, DIFFICULTIES } from '../data/questions';
+import { getQuestionBank } from '../utils/storage';
+import MathText from './MathText';
 
-export default function PracticeMode({ onStartMock }) {
+export default function PracticeMode({ onStartMock, onOpenScheduledModal, onOpenCandidateLogin }) {
   const [selectedSubject, setSelectedSubject] = useState('english');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -13,9 +15,15 @@ export default function PracticeMode({ onStartMock }) {
   const [isAnswerChecked, setIsAnswerChecked] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [practiceStats, setPracticeStats] = useState({ correct: 0, attempted: 0 });
+  const [questionBank, setQuestionBank] = useState(() => getQuestionBank());
+
+  // Reload bank when component renders
+  useEffect(() => {
+    setQuestionBank(getQuestionBank());
+  }, []);
 
   // Filter questions for the selected subject and difficulty
-  const subjectQuestions = QUESTION_BANK[selectedSubject] || [];
+  const subjectQuestions = questionBank[selectedSubject] || [];
   const filteredQuestions = selectedDifficulty === 'All'
     ? subjectQuestions
     : subjectQuestions.filter(q => q.difficulty === selectedDifficulty);
@@ -213,15 +221,23 @@ export default function PracticeMode({ onStartMock }) {
                 <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200">
                   <Lightbulb size={18} className="shrink-0 text-amber-400 mt-0.5" />
                   <div>
-                    <span className="font-bold text-amber-300">Examination Hint: </span>
-                    {currentQuestion.hint}
+                    <span className="font-bold text-amber-300 mr-1.5">Examination Hint:</span>
+                    <MathText text={currentQuestion.hint} />
                   </div>
+                </div>
+              )}
+
+              {/* Passage if present */}
+              {currentQuestion.passage && (
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-700/80 text-xs italic text-slate-300 leading-relaxed">
+                  <span className="font-bold text-sky-400 not-italic mr-1.5">Reading Context / Passage:</span>
+                  <MathText text={currentQuestion.passage} />
                 </div>
               )}
 
               {/* Question Text */}
               <div className="text-base sm:text-lg font-medium text-white leading-relaxed">
-                {currentQuestion.question}
+                <MathText text={currentQuestion.question} />
               </div>
 
               {/* Options */}
@@ -265,7 +281,7 @@ export default function PracticeMode({ onStartMock }) {
                         {opt.label}
                       </span>
                       <span className="text-sm sm:text-base pt-0.5 leading-snug flex-1">
-                        {opt.text}
+                        <MathText text={opt.text} />
                       </span>
                       {isAnswerChecked && isCorrect && (
                         <CheckCircle2 size={20} className="text-emerald-400 shrink-0 mt-0.5" />
@@ -326,9 +342,9 @@ export default function PracticeMode({ onStartMock }) {
                     <Sparkles size={16} />
                     <span>Official Solution & Explanation</span>
                   </div>
-                  <p className="text-sm text-slate-200 leading-relaxed">
-                    {currentQuestion.explanation}
-                  </p>
+                  <div className="text-sm text-slate-200 leading-relaxed">
+                    <MathText text={currentQuestion.explanation} />
+                  </div>
                   <div className="pt-2 text-xs text-slate-400">
                     Correct Option: <span className="font-bold text-emerald-400">{currentQuestion.correctOption}</span>
                   </div>
@@ -365,22 +381,76 @@ export default function PracticeMode({ onStartMock }) {
             </div>
           </div>
 
+          {/* Candidate CBT Portal Login Card (High Visibility) */}
+          <div className="bg-gradient-to-br from-sky-950/70 via-slate-900 to-slate-900 border border-sky-400/40 rounded-2xl p-5 space-y-3.5 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+            <div className="flex items-center justify-between relative">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                <UserCheck size={18} />
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-400/40 animate-pulse">
+                Accredited Student Login
+              </span>
+            </div>
+            <div className="relative">
+              <h4 className="font-extrabold text-white text-sm flex items-center gap-1.5">
+                <span>Candidate CBT Login</span>
+                <ShieldCheck size={14} className="text-sky-400" />
+              </h4>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Log in with your official Reg No and Passcode to take your personalized exam stream with only your registered subjects.
+              </p>
+            </div>
+            <button
+              onClick={onOpenCandidateLogin}
+              className="w-full py-2.5 px-3 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 relative"
+            >
+              <Key size={14} />
+              <span>Enter Candidate Terminal</span>
+            </button>
+          </div>
+
+          {/* Join Scheduled Exam Card */}
+          <div className="bg-gradient-to-br from-emerald-950/50 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-2xl p-5 space-y-3.5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <Key size={18} />
+              </div>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                Institutional Access
+              </span>
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm">Join Scheduled Exam</h4>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Have a 6-digit access PIN from your school, tutor, or testing center? Join your scheduled session.
+              </p>
+            </div>
+            <button
+              onClick={onOpenScheduledModal}
+              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
+            >
+              <Key size={14} />
+              <span>Enter 6-Digit Exam PIN</span>
+            </button>
+          </div>
+
           {/* Quick Mock Exam Card */}
           <div className="bg-gradient-to-br from-sky-900/40 via-slate-800 to-slate-900 border border-sky-500/30 rounded-2xl p-5 space-y-3.5 shadow-xl">
             <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
               <Award size={20} />
             </div>
             <div>
-              <h4 className="font-bold text-white text-sm">Ready for the Real Test?</h4>
+              <h4 className="font-bold text-white text-sm">Open 4-Subject Practice Mock</h4>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                 Experience the authentic 4-subject timed CBT mock with auto-scoring, official JAMB calculator, and WASSCE grade assignment.
               </p>
             </div>
             <button
               onClick={onStartMock}
-              className="w-full py-2.5 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30"
+              className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 rounded-xl text-xs font-bold transition"
             >
-              Start 4-Subject Mock
+              Quick Preset Mock
             </button>
           </div>
         </div>

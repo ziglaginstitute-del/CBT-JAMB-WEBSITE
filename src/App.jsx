@@ -6,12 +6,21 @@ import ExamInterface from './components/ExamInterface';
 import ResultAnalytics from './components/ResultAnalytics';
 import PastHistory from './components/PastHistory';
 import InstructionsModal from './components/InstructionsModal';
-import { SUBJECTS } from './data/questions';
+import QuestionBankManager from './components/QuestionBankManager';
+import ExamScheduler from './components/ExamScheduler';
+import ScheduledExamEntry from './components/ScheduledExamEntry';
+import CandidateLogin from './components/CandidateLogin';
+import CandidateManager from './components/CandidateManager';
+import { 
+  recordExamSubmission, recordCandidateSubmission, 
+  updateCandidate, getScheduledExams 
+} from './utils/storage';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('practice'); // 'practice' | 'exam' | 'result' | 'history'
+  const [currentView, setCurrentView] = useState('practice'); // 'practice' | 'login' | 'candidates' | 'exam' | 'result' | 'history' | 'question-bank' | 'scheduled-exams'
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [isJoinPinOpen, setIsJoinPinOpen] = useState(false);
 
   // Active exam configuration
   const [activeExamConfig, setActiveExamConfig] = useState(null);
@@ -47,16 +56,18 @@ export default function App() {
   const handleStartExam = (config) => {
     setActiveExamConfig(config);
     setIsSetupOpen(false);
+    setIsJoinPinOpen(false);
     setCurrentView('exam');
   };
 
   const handleFinishExam = (completedData) => {
     const { examConfig, answers, examQuestionsBySubject, timeSpentSeconds } = completedData;
 
-    // Calculate total score
+    // Calculate total score and subject-level scores
     let totalScore = 0;
     let totalQuestions = 0;
     let totalCorrect = 0;
+    const subjectScores = {};
 
     examConfig.subjects.forEach(subId => {
       const questions = examQuestionsBySubject[subId] || [];
@@ -70,10 +81,16 @@ export default function App() {
       totalQuestions += questions.length;
       const subScaled = questions.length > 0 ? Math.round((subCorrect / questions.length) * 100) : 0;
       totalScore += subScaled;
+      subjectScores[subId] = {
+        correct: subCorrect,
+        total: questions.length,
+        score: subScaled
+      };
     });
 
-    const maxScore = examConfig.examType === 'JAMB' ? 400 : 100;
-    const finalScore = examConfig.examType === 'JAMB'
+    const isJamb = examConfig.examType?.toLowerCase() === 'jamb';
+    const maxScore = isJamb ? 400 : 100;
+    const finalScore = isJamb
       ? totalScore
       : (totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0);
 
@@ -89,27 +106,83 @@ export default function App() {
       timeSpentSeconds
     };
 
+    // If this was an authenticated candidate session, record in candidate profile
+    if (examConfig.isCandidateSession && examConfig.candidateId) {
+      recordCandidateSubmission(examConfig.candidateId, {
+        totalScore: finalScore,
+        maxScore,
+        percentage,
+        timeSpentSeconds,
+        submittedAt: new Date().toISOString(),
+        subjectScores
+      });
+    }
+
+    // If this was a scheduled exam, record in scheduled exam gradebook
+    if (examConfig.isScheduled && examConfig.scheduledExamId) {
+      recordExamSubmission(examConfig.scheduledExamId, {
+        candidateName: examConfig.candidateName,
+        candidateId: examConfig.candidateReg,
+        submittedAt: new Date().toISOString(),
+        totalScore: finalScore,
+        percentage,
+        timeSpentSeconds,
+        subjectScores
+      });
+    }
+
     saveToHistory(historyRecord);
     setExamResult(completedData);
     setCurrentView('result');
   };
 
   const handleReviewPastAttempt = (attempt) => {
-    // Reconstruct resultData view for the attempt
-    // In practice we can show analytics with current question bank
-    // But we can also set examResult if stored, or start mock
     setIsSetupOpen(true);
+  };
+
+  const handleDirectLaunchScheduledExam = (exam) => {
+    handleStartExam({
+      examType: exam.examType?.toUpperCase(),
+      candidateName: 'Candidate ' + Math.floor(100 + Math.random() * 900),
+      candidateReg: `2026/UTME/${Math.floor(100000 + Math.random() * 900000)}`,
+      subjects: exam.subjectIds,
+      durationMinutes: exam.durationMinutes,
+      isScheduled: true,
+      scheduledExamId: exam.id,
+      questionsBySubject: exam.questionsBySubject
+    });
+  };
+
+  // Launch exam personalized exclusively for the authenticated candidate
+  const handleLaunchCandidateSession = (candidate, assignedExam = null) => {
+    // Set candidate status to In Progress
+    updateCandidate(candidate.id, { status: 'In Progress' });
+
+    handleStartExam({
+      examType: candidate.examType || 'JAMB UTME',
+      candidateName: candidate.fullName,
+      candidateReg: candidate.username,
+      candidateId: candidate.id,
+      isCandidateSession: true,
+      // Pass candidate's registered subjects list
+      subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
+      durationMinutes: assignedExam ? assignedExam.durationMinutes : (candidate.examType === 'WASSCE' ? 150 : 120),
+      isScheduled: !!assignedExam,
+      scheduledExamId: assignedExam ? assignedExam.id : null,
+      questionsBySubject: assignedExam?.questionsBySubject || null
+    });
   };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col selection:bg-sky-500 selection:text-white">
-      {/* Hide standard navbar when inside live exam to maximize focus */}
+      {/* Hide standard navbar when inside live exam to maximize exam focus */}
       {currentView !== 'exam' && (
         <Navbar
           activeTab={currentView}
           setActiveTab={(tab) => setCurrentView(tab)}
           onOpenInstructions={() => setIsInstructionsOpen(true)}
           onStartExamModal={() => setIsSetupOpen(true)}
+          onOpenJoinPinModal={() => setIsJoinPinOpen(true)}
         />
       )}
 
@@ -118,6 +191,31 @@ export default function App() {
         {currentView === 'practice' && (
           <PracticeMode
             onStartMock={() => setIsSetupOpen(true)}
+            onOpenScheduledModal={() => setIsJoinPinOpen(true)}
+            onOpenCandidateLogin={() => setCurrentView('login')}
+          />
+        )}
+
+        {currentView === 'login' && (
+          <CandidateLogin
+            onLoginSuccess={handleLaunchCandidateSession}
+            onOpenAdminRoster={() => setCurrentView('candidates')}
+          />
+        )}
+
+        {currentView === 'candidates' && (
+          <CandidateManager
+            onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
+          />
+        )}
+
+        {currentView === 'question-bank' && (
+          <QuestionBankManager />
+        )}
+
+        {currentView === 'scheduled-exams' && (
+          <ExamScheduler
+            onDirectLaunchExam={handleDirectLaunchScheduledExam}
           />
         )}
 
@@ -125,14 +223,20 @@ export default function App() {
           <ExamInterface
             examConfig={activeExamConfig}
             onFinishExam={handleFinishExam}
-            onExitExam={() => setCurrentView('practice')}
+            onExitExam={() => setCurrentView(activeExamConfig.isCandidateSession ? 'login' : 'practice')}
           />
         )}
 
         {currentView === 'result' && examResult && (
           <ResultAnalytics
             resultData={examResult}
-            onRetake={() => setIsSetupOpen(true)}
+            onRetake={() => {
+              if (examResult?.examConfig?.isCandidateSession) {
+                setCurrentView('login');
+              } else {
+                setIsSetupOpen(true);
+              }
+            }}
             onPracticeSubject={(subjectId) => {
               setCurrentView('practice');
             }}
@@ -156,15 +260,24 @@ export default function App() {
             <p>
               PrepCBT • High-Standard JAMB UTME & WASSCE Computer-Based Test Simulator
             </p>
-            <div className="flex items-center gap-4 text-slate-400">
+            <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
+              <button onClick={() => setCurrentView('login')} className="hover:text-sky-400 transition font-semibold text-sky-400">
+                Candidate Login
+              </button>
+              <button onClick={() => setCurrentView('candidates')} className="hover:text-sky-400 transition">
+                Candidates & Gradebook
+              </button>
+              <button onClick={() => setCurrentView('question-bank')} className="hover:text-sky-400 transition">
+                Question Bank
+              </button>
+              <button onClick={() => setCurrentView('scheduled-exams')} className="hover:text-sky-400 transition">
+                Scheduled Mocks
+              </button>
+              <button onClick={() => setIsJoinPinOpen(true)} className="hover:text-sky-400 transition">
+                Join with PIN
+              </button>
               <button onClick={() => setIsInstructionsOpen(true)} className="hover:text-sky-400 transition">
                 Shortcuts Guide
-              </button>
-              <button onClick={() => setIsSetupOpen(true)} className="hover:text-sky-400 transition">
-                4-Subject Mock
-              </button>
-              <button onClick={() => setCurrentView('practice')} className="hover:text-sky-400 transition">
-                Untimed Practice
               </button>
             </div>
           </div>
@@ -176,6 +289,13 @@ export default function App() {
         isOpen={isSetupOpen}
         onClose={() => setIsSetupOpen(false)}
         onStartExam={handleStartExam}
+      />
+
+      {/* Scheduled Exam Entry Modal */}
+      <ScheduledExamEntry
+        isOpen={isJoinPinOpen}
+        onClose={() => setIsJoinPinOpen(false)}
+        onLaunchExam={handleStartExam}
       />
 
       {/* Guidelines & Shortcuts Modal */}

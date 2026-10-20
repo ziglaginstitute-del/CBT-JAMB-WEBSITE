@@ -4,6 +4,7 @@ import {
   ChevronRight, BookOpen, AlertCircle, FileText, Check, HelpCircle 
 } from 'lucide-react';
 import { SUBJECTS, getWassceGrade } from '../data/questions';
+import MathText from './MathText';
 
 export default function ResultAnalytics({ resultData, onRetake, onPracticeSubject }) {
   const { examConfig, answers, examQuestionsBySubject, timeSpentSeconds } = resultData;
@@ -348,7 +349,7 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
 
                   {/* Question Prompt */}
                   <div className="text-white text-base font-medium mb-4">
-                    {q.question}
+                    <MathText text={q.question} />
                   </div>
 
                   {/* Option List with Highlights */}
@@ -378,7 +379,9 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
                           }`}>
                             {opt.label}
                           </span>
-                          <span className="pt-0.5 leading-snug">{opt.text}</span>
+                          <span className="pt-0.5 leading-snug">
+                            <MathText text={opt.text} />
+                          </span>
                         </div>
                       );
                     })}
@@ -389,7 +392,9 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
                     <span className="text-xs font-bold text-sky-400 uppercase tracking-wider block">
                       Detailed Explanation:
                     </span>
-                    <p className="leading-relaxed">{q.explanation}</p>
+                    <div className="leading-relaxed">
+                      <MathText text={q.explanation} />
+                    </div>
                   </div>
                 </div>
               );
