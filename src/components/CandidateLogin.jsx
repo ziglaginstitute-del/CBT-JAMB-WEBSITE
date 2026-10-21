@@ -16,6 +16,7 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
   const [password, setPassword] = useState('PASS-7921');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showForgotHelp, setShowForgotHelp] = useState(false);
   
   // Verification Modal state
   const [verifiedCandidate, setVerifiedCandidate] = useState(null);
@@ -132,12 +133,9 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
               <Sparkles size={14} />
               <span>Instant Test Candidates</span>
             </div>
-            <button
-              onClick={onOpenAdminRoster}
-              className="text-[11px] text-slate-400 hover:text-sky-300 underline"
-            >
-              Admin Roster
-            </button>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {candidates.length} Enrolled
+            </span>
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
@@ -253,9 +251,16 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Case-sensitive candidate access code
-              </p>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
+                <span>Case-sensitive candidate access code</span>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotHelp(true)}
+                  className="text-sky-400 hover:text-sky-300 font-semibold transition hover:underline"
+                >
+                  Forgot Passcode?
+                </button>
+              </div>
             </div>
 
             {errorMessage && (
@@ -458,6 +463,70 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
               )}
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ================= FORGOT PASSCODE / CREDENTIAL RECOVERY MODAL ================= */}
+      {showForgotHelp && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
+            <div className="bg-gradient-to-r from-sky-600 to-indigo-600 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2.5">
+                <HelpCircle size={22} />
+                <div>
+                  <h3 className="font-extrabold text-base">Candidate Credential Recovery</h3>
+                  <p className="text-xs text-sky-100">Official procedure for misplaced passcodes</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowForgotHelp(false)}
+                className="text-white/80 hover:text-white p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs sm:text-sm text-slate-300">
+              <div className="p-3.5 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-start gap-3">
+                <ShieldCheck size={20} className="text-sky-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-white text-xs sm:text-sm">
+                    In-Person Verification Required
+                  </p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    To maintain strict examination integrity and prevent impersonation, candidates cannot self-reset passcodes over public internet without center authorization.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                  How to regain your credentials:
+                </h4>
+                <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-300 leading-relaxed">
+                  <li>
+                    <strong>Approach Center Invigilator / Staff:</strong> Present your photo ID or Registration Docket at the accreditation desk.
+                  </li>
+                  <li>
+                    <strong>Admin Override:</strong> The administrator will open the <em>Candidate Manager & Gradebook</em>, search your registration number, and click the <strong>Reset Passcode</strong> key icon.
+                  </li>
+                  <li>
+                    <strong>Immediate Access:</strong> A new randomized or custom passcode will be issued on the spot and your docket will be reprinted if required.
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 px-6 py-3.5 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowForgotHelp(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+              >
+                Close Guidance
+              </button>
+            </div>
           </div>
         </div>
       )}

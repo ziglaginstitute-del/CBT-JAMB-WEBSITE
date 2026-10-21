@@ -6,8 +6,9 @@ import {
 import { SUBJECTS, DIFFICULTIES } from '../data/questions';
 import { getQuestionBank } from '../utils/storage';
 import MathText from './MathText';
+import Question from './Question';
 
-export default function PracticeMode({ onStartMock, onOpenScheduledModal, onOpenCandidateLogin }) {
+export default function PracticeMode({ onStartMock, onOpenCandidateLogin }) {
   const [selectedSubject, setSelectedSubject] = useState('english');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -196,160 +197,22 @@ export default function PracticeMode({ onStartMock, onOpenScheduledModal, onOpen
               </button>
             </div>
           ) : (
-            <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
-              {/* Question Header */}
-              <div className="flex items-start justify-between gap-4">
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-700/60 text-slate-300">
-                  {currentQuestion.difficulty}
-                </span>
-
-                <button
-                  onClick={() => setShowHint(!showHint)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    showHint
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'text-slate-400 hover:text-amber-300 hover:bg-slate-700/50'
-                  }`}
-                >
-                  <Lightbulb size={14} className={showHint ? 'fill-amber-400 text-amber-400' : ''} />
-                  <span>{showHint ? 'Hide Hint' : 'Need a Hint?'}</span>
-                </button>
-              </div>
-
-              {/* Hint Box */}
-              {showHint && (
-                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs sm:text-sm flex items-start gap-2.5 animate-in fade-in duration-200">
-                  <Lightbulb size={18} className="shrink-0 text-amber-400 mt-0.5" />
-                  <div>
-                    <span className="font-bold text-amber-300 mr-1.5">Examination Hint:</span>
-                    <MathText text={currentQuestion.hint} />
-                  </div>
-                </div>
-              )}
-
-              {/* Passage if present */}
-              {currentQuestion.passage && (
-                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-700/80 text-xs italic text-slate-300 leading-relaxed">
-                  <span className="font-bold text-sky-400 not-italic mr-1.5">Reading Context / Passage:</span>
-                  <MathText text={currentQuestion.passage} />
-                </div>
-              )}
-
-              {/* Question Text */}
-              <div className="text-base sm:text-lg font-medium text-white leading-relaxed">
-                <MathText text={currentQuestion.question} />
-              </div>
-
-              {/* Options */}
-              <div className="space-y-3 pt-2">
-                {currentQuestion.options.map((opt) => {
-                  const isSelected = selectedOption === opt.label;
-                  const isCorrect = currentQuestion.correctOption === opt.label;
-
-                  let optionStyle = 'bg-slate-900/60 hover:bg-slate-700/50 border-slate-700/70 text-slate-200';
-
-                  if (isAnswerChecked) {
-                    if (isCorrect) {
-                      optionStyle = 'bg-emerald-500/15 border-emerald-500/70 text-emerald-200';
-                    } else if (isSelected && !isCorrect) {
-                      optionStyle = 'bg-rose-500/15 border-rose-500/70 text-rose-200';
-                    } else {
-                      optionStyle = 'bg-slate-900/40 border-slate-800 text-slate-500 opacity-60';
-                    }
-                  } else if (isSelected) {
-                    optionStyle = 'bg-sky-500/20 border-sky-500 text-white ring-1 ring-sky-500';
-                  }
-
-                  return (
-                    <button
-                      key={opt.label}
-                      onClick={() => handleSelectOption(opt.label)}
-                      disabled={isAnswerChecked}
-                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-start gap-3.5 group ${optionStyle}`}
-                    >
-                      <span className={`w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 font-mono transition-colors ${
-                        isAnswerChecked
-                          ? isCorrect
-                            ? 'bg-emerald-500 text-slate-950'
-                            : isSelected
-                            ? 'bg-rose-500 text-white'
-                            : 'bg-slate-800 text-slate-500'
-                          : isSelected
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-slate-800 text-slate-300 group-hover:bg-slate-700 group-hover:text-white'
-                      }`}>
-                        {opt.label}
-                      </span>
-                      <span className="text-sm sm:text-base pt-0.5 leading-snug flex-1">
-                        <MathText text={opt.text} />
-                      </span>
-                      {isAnswerChecked && isCorrect && (
-                        <CheckCircle2 size={20} className="text-emerald-400 shrink-0 mt-0.5" />
-                      )}
-                      {isAnswerChecked && isSelected && !isCorrect && (
-                        <XCircle size={20} className="text-rose-400 shrink-0 mt-0.5" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-700/70 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePrev}
-                    disabled={currentIndex === 0}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-                  >
-                    <ChevronLeft size={16} />
-                    <span>Previous</span>
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    disabled={currentIndex >= filteredQuestions.length - 1}
-                    className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-                  >
-                    <span>Next</span>
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-
-                {!isAnswerChecked ? (
-                  <button
-                    onClick={handleCheckAnswer}
-                    disabled={!selectedOption}
-                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/30 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    Check Answer
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleNext}
-                    disabled={currentIndex >= filteredQuestions.length - 1}
-                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 disabled:opacity-40 transition flex items-center gap-1.5"
-                  >
-                    <span>Continue to Next</span>
-                    <ChevronRight size={16} />
-                  </button>
-                )}
-              </div>
-
-              {/* Step-by-Step Solution Card */}
-              {isAnswerChecked && (
-                <div className="mt-4 p-5 rounded-xl bg-slate-900/90 border border-sky-500/30 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-400">
-                    <Sparkles size={16} />
-                    <span>Official Solution & Explanation</span>
-                  </div>
-                  <div className="text-sm text-slate-200 leading-relaxed">
-                    <MathText text={currentQuestion.explanation} />
-                  </div>
-                  <div className="pt-2 text-xs text-slate-400">
-                    Correct Option: <span className="font-bold text-emerald-400">{currentQuestion.correctOption}</span>
-                  </div>
-                </div>
-              )}
+            <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 sm:p-8 shadow-xl">
+              <Question
+                question={currentQuestion}
+                questionNumber={filteredQuestions.length > 0 ? currentIndex + 1 : 0}
+                totalQuestions={filteredQuestions.length}
+                selectedOption={selectedOption}
+                onSelectOption={handleSelectOption}
+                mode="practice"
+                isAnswerChecked={isAnswerChecked}
+                onCheckAnswer={handleCheckAnswer}
+                onNext={handleNext}
+                onPrev={handlePrev}
+                isFirst={currentIndex === 0}
+                isLast={currentIndex >= filteredQuestions.length - 1}
+                subjectName={SUBJECTS.find(s => s.id === selectedSubject)?.name}
+              />
             </div>
           )}
         </div>
@@ -407,31 +270,6 @@ export default function PracticeMode({ onStartMock, onOpenScheduledModal, onOpen
             >
               <Key size={14} />
               <span>Enter Candidate Terminal</span>
-            </button>
-          </div>
-
-          {/* Join Scheduled Exam Card */}
-          <div className="bg-gradient-to-br from-emerald-950/50 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-2xl p-5 space-y-3.5 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <Key size={18} />
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                Institutional Access
-              </span>
-            </div>
-            <div>
-              <h4 className="font-bold text-white text-sm">Join Scheduled Exam</h4>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                Have a 6-digit access PIN from your school, tutor, or testing center? Join your scheduled session.
-              </p>
-            </div>
-            <button
-              onClick={onOpenScheduledModal}
-              className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2"
-            >
-              <Key size={14} />
-              <span>Enter 6-Digit Exam PIN</span>
             </button>
           </div>
 

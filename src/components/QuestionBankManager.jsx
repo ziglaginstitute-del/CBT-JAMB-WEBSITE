@@ -11,6 +11,7 @@ import {
 } from '../utils/storage';
 import PDFQuestionUploader from './PDFQuestionUploader';
 import MathText from './MathText';
+import Question from './Question';
 
 export default function QuestionBankManager() {
   const [questionBank, setQuestionBank] = useState({});
@@ -365,15 +366,13 @@ export default function QuestionBankManager() {
             return (
               <div
                 key={q.id || idx}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3 hover:border-slate-700 transition"
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 hover:border-slate-700 transition"
               >
-                {/* Question Top Row */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">
                       {subObj.name}
                     </span>
-
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                       q.difficulty === 'Beginner'
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
@@ -383,7 +382,6 @@ export default function QuestionBankManager() {
                     }`}>
                       {q.difficulty}
                     </span>
-
                     {q.topic && (
                       <span className="text-xs text-slate-400 italic">
                         Topic: <strong className="text-slate-300 not-italic">{q.topic}</strong>
@@ -409,63 +407,15 @@ export default function QuestionBankManager() {
                   </div>
                 </div>
 
-                {/* Comprehension Passage if present */}
-                {q.passage && (
-                  <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80 text-xs italic text-slate-300 leading-relaxed">
-                    <span className="font-bold text-sky-400 not-italic mr-1.5">Passage / Reading Context:</span>
-                    <MathText text={q.passage} />
-                  </div>
-                )}
-
-                {/* Question Prompt */}
-                <div className="text-base text-white font-medium">
-                  <MathText text={q.question} />
-                </div>
-
-                {/* Options Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
-                  {q.options?.map(opt => {
-                    const isCorrect = opt.label === q.correctOption;
-                    return (
-                      <div
-                        key={opt.label}
-                        className={`p-2.5 rounded-xl border flex items-start gap-2.5 ${
-                          isCorrect
-                            ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-200 font-semibold'
-                            : 'bg-slate-950/50 border-slate-800 text-slate-300'
-                        }`}
-                      >
-                        <span className={`w-5 h-5 rounded font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
-                          isCorrect ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                        }`}>
-                          {opt.label}
-                        </span>
-                        <span className="pt-0.5 leading-snug">
-                          <MathText text={opt.text} />
-                        </span>
-                        {isCorrect && (
-                          <CheckCircle2 size={14} className="text-emerald-400 ml-auto shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Explanation & Hint */}
-                <div className="pt-2 text-xs text-slate-400 space-y-1">
-                  {q.hint && (
-                    <div className="flex items-start gap-1">
-                      <span className="font-bold text-amber-400 shrink-0">Exam Hint:</span>
-                      <MathText text={q.hint} />
-                    </div>
-                  )}
-                  {q.explanation && (
-                    <div className="flex items-start gap-1">
-                      <span className="font-bold text-sky-400 shrink-0">Teacher Explanation:</span>
-                      <MathText text={q.explanation} />
-                    </div>
-                  )}
-                </div>
+                <Question
+                  question={q}
+                  questionNumber={idx + 1}
+                  totalQuestions={filteredQuestions.length}
+                  mode="preview"
+                  showHintByDefault={true}
+                  showExplanationByDefault={true}
+                  subjectName={subObj.name}
+                />
               </div>
             );
           })

@@ -7,6 +7,7 @@ import { SUBJECTS } from '../data/questions';
 import { getQuestionBank } from '../utils/storage';
 import JambCalculator from './JambCalculator';
 import MathText from './MathText';
+import Question from './Question';
 
 export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) {
   const { examType, candidateName, candidateReg, subjects, durationMinutes } = examConfig;
@@ -298,80 +299,17 @@ export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) 
         {/* Left Column: Question Area */}
         <div className="lg:col-span-3 flex flex-col justify-between bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
           {currentQuestion ? (
-            <div className="space-y-6">
-              {/* Question Header Status */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs uppercase font-extrabold tracking-wider text-sky-400 font-mono">
-                    Question {currentQIndex + 1} of {currentSubjectQuestions.length}
-                  </span>
-                  <span className="text-xs text-slate-500">•</span>
-                  <span className="text-xs text-slate-400 capitalize">
-                    {SUBJECTS.find(s => s.id === activeSubject)?.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleToggleFlag}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                      flagged[currentQuestion.id]
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500'
-                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300'
-                    }`}
-                  >
-                    <Flag size={14} className={flagged[currentQuestion.id] ? 'fill-amber-400 text-amber-400' : ''} />
-                    <span>{flagged[currentQuestion.id] ? 'Flagged [R]' : 'Flag for Review [R]'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Comprehension Passage if present */}
-              {currentQuestion.passage && (
-                <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs italic text-slate-300 leading-relaxed">
-                  <span className="font-bold text-sky-400 not-italic mr-1.5">Reading Context / Passage:</span>
-                  <MathText text={currentQuestion.passage} />
-                </div>
-              )}
-
-              {/* Question Text */}
-              <div className="text-lg sm:text-xl font-medium text-white leading-relaxed">
-                <MathText text={currentQuestion.question} />
-              </div>
-
-              {/* Options Cards */}
-              <div className="space-y-3 pt-2">
-                {currentQuestion.options.map(opt => {
-                  const isSelected = answers[currentQuestion.id] === opt.label;
-
-                  return (
-                    <button
-                      key={opt.label}
-                      onClick={() => handleSelectOption(opt.label)}
-                      className={`w-full text-left p-4 rounded-xl border transition-all flex items-start gap-4 group ${
-                        isSelected
-                          ? 'bg-sky-600/20 border-sky-500 text-white ring-1 ring-sky-500'
-                          : 'bg-slate-950/60 hover:bg-slate-800/60 border-slate-800 text-slate-300'
-                      }`}
-                    >
-                      <span className={`w-8 h-8 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 font-mono transition-colors ${
-                        isSelected
-                          ? 'bg-sky-600 text-white'
-                          : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-white'
-                      }`}>
-                        {opt.label}
-                      </span>
-                      <span className="text-sm sm:text-base pt-1 flex-1 leading-normal">
-                        <MathText text={opt.text} />
-                      </span>
-                      {isSelected && (
-                        <Check size={18} className="text-sky-400 shrink-0 mt-1" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <Question
+              question={currentQuestion}
+              questionNumber={currentQIndex + 1}
+              totalQuestions={currentSubjectQuestions.length}
+              selectedOption={answers[currentQuestion.id]}
+              onSelectOption={handleSelectOption}
+              mode="exam"
+              isFlagged={!!flagged[currentQuestion.id]}
+              onToggleFlag={handleToggleFlag}
+              subjectName={SUBJECTS.find(s => s.id === activeSubject)?.name}
+            />
           ) : (
             <div className="text-center py-12 text-slate-400">
               No questions found for this subject.

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, FileSpreadsheet, Download, RefreshCw, 
   Search, Trash2, Printer, Eye, CheckCircle2, Clock, 
-  AlertTriangle, Key, Sparkles, BookOpen, ChevronRight, X, ArrowUpDown, Play
+  AlertTriangle, Key, Sparkles, BookOpen, ChevronRight, X, ArrowUpDown, Play,
+  KeyRound, Check, ShieldAlert, Copy
 } from 'lucide-react';
 import { SUBJECTS } from '../data/questions';
 import { 
@@ -11,6 +12,7 @@ import {
   generateCandidateRegNo, generateCandidatePasscode, getScheduledExams 
 } from '../utils/storage';
 import CandidateExamSlipModal from './CandidateExamSlipModal';
+import MathText from './MathText';
 
 const PRESET_COMBINATIONS = [
   {
@@ -66,6 +68,9 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [selectedCandidateSlip, setSelectedCandidateSlip] = useState(null);
   const [viewingResultCandidate, setViewingResultCandidate] = useState(null);
+  const [resetPasswordCandidate, setResetPasswordCandidate] = useState(null);
+  const [newPasscodeVal, setNewPasscodeVal] = useState('');
+  const [resetCopied, setResetCopied] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
 
   // Single Registration Form State
@@ -303,6 +308,31 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
       loadData();
       showToast('Candidate exam reset! Candidate can now log in and take the exam again.');
     }
+  };
+
+  const handleOpenResetPassword = (cand) => {
+    setResetPasswordCandidate(cand);
+    setNewPasscodeVal(generateCandidatePasscode());
+    setResetCopied(false);
+  };
+
+  const handleConfirmResetPassword = (e) => {
+    e?.preventDefault();
+    if (!resetPasswordCandidate) return;
+    const cleanPass = newPasscodeVal.trim();
+    if (!cleanPass) {
+      alert('Please enter or generate a new passcode.');
+      return;
+    }
+
+    const updated = updateCandidate(resetPasswordCandidate.id, { password: cleanPass });
+    loadData();
+    showToast(`Passcode for ${resetPasswordCandidate.fullName} updated to ${cleanPass}!`);
+    // update local state if slip open
+    if (selectedCandidateSlip?.id === resetPasswordCandidate.id) {
+      setSelectedCandidateSlip({ ...selectedCandidateSlip, password: cleanPass });
+    }
+    setResetPasswordCandidate(null);
   };
 
   const handleDelete = (id, name) => {
@@ -641,6 +671,17 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                           {/* Action Buttons */}
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* View Result Breakdown if completed */}
+                              {isCompleted && cand.examResult && (
+                                <button
+                                  onClick={() => setViewingResultCandidate(cand)}
+                                  className="p-1.5 text-emerald-400 hover:text-emerald-200 hover:bg-emerald-500/20 rounded-lg transition"
+                                  title="View Detailed Performance Breakdown"
+                                >
+                                  <Eye size={15} />
+                                </button>
+                              )}
+
                               {/* View Docket / Slip */}
                               <button
                                 onClick={() => setSelectedCandidateSlip(cand)}
@@ -648,6 +689,15 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                                 title="Print Official Exam Slip / Docket"
                               >
                                 <Printer size={15} />
+                              </button>
+
+                              {/* Forgot / Reset Candidate Password */}
+                              <button
+                                onClick={() => handleOpenResetPassword(cand)}
+                                className="p-1.5 text-amber-400 hover:text-amber-200 hover:bg-amber-500/20 rounded-lg transition"
+                                title="Reset / Change Candidate Passcode"
+                              >
+                                <KeyRound size={15} />
                               </button>
 
                               {/* Login As This Candidate Shortcut */}
@@ -1060,6 +1110,327 @@ Emmanuel Okafor,JAMB UTME,english;mathematics;economics;commerce,JAMB/2026/803,P
         isOpen={!!selectedCandidateSlip}
         onClose={() => setSelectedCandidateSlip(null)}
       />
+
+      {/* Candidate Result Breakdown Modal */}
+      {viewingResultCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-600 to-emerald-600 flex items-center justify-center text-white font-black text-lg shadow-md">
+                  {viewingResultCandidate.fullName ? viewingResultCandidate.fullName.charAt(0) : 'C'}
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">
+                    {viewingResultCandidate.fullName}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                    <span className="font-mono text-sky-400 font-bold">{viewingResultCandidate.username}</span>
+                    <span>•</span>
+                    <span className="text-slate-300">{viewingResultCandidate.examType}</span>
+                    <span>•</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold">
+                      Completed
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setViewingResultCandidate(null)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Overall Score Banner */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-center">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-400">
+                    Aggregate Score
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-3xl font-black font-mono text-emerald-300">
+                      {viewingResultCandidate.examResult?.totalScore ?? '—'}
+                    </span>
+                    <span className="text-xs text-emerald-500/70"> / 400</span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-sky-950/30 border border-sky-500/20 rounded-xl text-center">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-sky-400">
+                    Percentage
+                  </span>
+                  <div className="mt-1">
+                    <span className="text-3xl font-black font-mono text-sky-300">
+                      {viewingResultCandidate.examResult?.percentage ?? '—'}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-xl text-center">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">
+                    Time Used
+                  </span>
+                  <div className="mt-1 text-2xl font-bold font-mono text-white">
+                    {viewingResultCandidate.examResult?.timeSpentSeconds 
+                      ? `${Math.floor(viewingResultCandidate.examResult.timeSpentSeconds / 60)}m ${viewingResultCandidate.examResult.timeSpentSeconds % 60}s`
+                      : 'N/A'}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-xl text-center">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">
+                    Completion Status
+                  </span>
+                  <div className="mt-1 text-sm font-bold text-emerald-400 flex items-center justify-center gap-1.5 h-8">
+                    <CheckCircle2 size={16} />
+                    <span>Graded & Verified</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subject Scores List */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Subject-by-Subject Performance
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Object.entries(viewingResultCandidate.examResult?.subjectScores || {}).map(([subKey, stats]) => {
+                    const subMeta = SUBJECTS[subKey] || { name: subKey.toUpperCase(), color: '#0284c7' };
+                    const pct = stats.score !== undefined 
+                      ? stats.score 
+                      : (stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0);
+
+                    return (
+                      <div 
+                        key={subKey}
+                        className="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm text-white flex items-center gap-2">
+                            <span 
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{ backgroundColor: subMeta.color || '#38bdf8' }}
+                            />
+                            {subMeta.name}
+                          </span>
+                          <span className="font-mono font-bold text-sm text-sky-400">
+                            {pct}%
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-slate-400">
+                          <span>Correct Answers:</span>
+                          <span className="font-mono font-bold text-white">
+                            {stats.correct} / {stats.total}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-sky-500 to-emerald-400"
+                            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Exam Info Metadata */}
+              <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl text-xs space-y-1.5 text-slate-400">
+                <div className="flex items-center justify-between">
+                  <span>Assigned Exam Center:</span>
+                  <span className="text-white font-medium">{viewingResultCandidate.center || 'PrepCBT Center 01'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Seat Allocation:</span>
+                  <span className="text-white font-medium">{viewingResultCandidate.seatNumber || 'N/A'}</span>
+                </div>
+                {viewingResultCandidate.examResult?.submittedAt && (
+                  <div className="flex items-center justify-between">
+                    <span>Submitted Timestamp:</span>
+                    <span className="text-white font-mono">{new Date(viewingResultCandidate.examResult.submittedAt).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const cand = viewingResultCandidate;
+                  setViewingResultCandidate(null);
+                  setSelectedCandidateSlip(cand);
+                }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-2"
+              >
+                <Printer size={15} />
+                <span>Print Official Examination Slip</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingResultCandidate(null)}
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30"
+              >
+                Close Breakdown
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= FORGOT / RESET CANDIDATE PASSWORD MODAL ================= */}
+      {resetPasswordCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden my-8">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-4 flex items-center justify-between text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-800/60 rounded-xl">
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base">Reset Candidate Password</h3>
+                  <p className="text-xs text-amber-100">Issue new credentials for candidate access</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResetPasswordCandidate(null)}
+                className="text-white/80 hover:text-white p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleConfirmResetPassword} className="p-6 space-y-4">
+              
+              {/* Candidate Info Card */}
+              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Candidate Name:</span>
+                  <span className="font-bold text-white text-sm">{resetPasswordCandidate.fullName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Registration Number:</span>
+                  <span className="font-mono font-bold text-sky-400">{resetPasswordCandidate.username}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Current Passcode:</span>
+                  <span className="font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                    {resetPasswordCandidate.password}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status / Category:</span>
+                  <span className="text-slate-300">
+                    {resetPasswordCandidate.status} • {resetPasswordCandidate.category || 'General'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Security Guidance Note */}
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5 text-xs text-amber-200/90 leading-relaxed">
+                <ShieldAlert size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  Admin override: Updating this passcode immediately updates the candidate's login credentials. Any prior examination slips will show the new passcode upon reprint.
+                </span>
+              </div>
+
+              {/* New Password Input & Auto-generator */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                    New Passcode / Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fresh = generateCandidatePasscode();
+                      setNewPasscodeVal(fresh);
+                      setResetCopied(false);
+                    }}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold"
+                  >
+                    <RefreshCw size={12} />
+                    <span>Auto-Generate</span>
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={newPasscodeVal}
+                    onChange={(e) => setNewPasscodeVal(e.target.value)}
+                    placeholder="e.g. PASS-8942"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-4 py-3 font-mono text-base font-bold text-amber-300 tracking-wider focus:outline-none"
+                    autoFocus
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newPasscodeVal);
+                      setResetCopied(true);
+                      setTimeout(() => setResetCopied(false), 2000);
+                    }}
+                    className="absolute right-3 top-2.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1"
+                    title="Copy new passcode to clipboard"
+                  >
+                    {resetCopied ? (
+                      <>
+                        <Check size={13} className="text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Format typically uses <span className="font-mono text-slate-300">PASS-XXXX</span> or any custom string.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordCandidate(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-amber-600/30 flex items-center gap-2"
+                >
+                  <KeyRound size={15} />
+                  <span>Save & Apply New Passcode</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

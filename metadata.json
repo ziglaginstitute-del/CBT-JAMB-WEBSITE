@@ -1,0 +1,7 @@
+{
+  "name": "PrepCBT - Standard CBT Mock Portal",
+  "description": "Standard Computer-Based Test (CBT) Mock Examination Web Application for JAMB UTME and WASSCE candidates with student credential management, LaTeX math notation, and master admin security gate.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

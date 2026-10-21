@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { SUBJECTS, getWassceGrade } from '../data/questions';
 import MathText from './MathText';
+import Question from './Question';
 
 export default function ResultAnalytics({ resultData, onRetake, onPracticeSubject }) {
   const { examConfig, answers, examQuestionsBySubject, timeSpentSeconds } = resultData;
@@ -314,88 +315,15 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
               return (
                 <div
                   key={q.id}
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isCorrect
-                      ? 'bg-slate-950/60 border-emerald-500/30'
-                      : isSkipped
-                      ? 'bg-slate-950/60 border-slate-800'
-                      : 'bg-slate-950/60 border-rose-500/30'
-                  }`}
+                  className="p-5 rounded-2xl border bg-slate-950/60 border-slate-800 transition-all hover:border-slate-700"
                 >
-                  {/* Status Bar */}
-                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-xs">
-                    <span className="font-bold text-slate-300 font-mono">
-                      Question #{idx + 1} • <span className="uppercase">{q.difficulty}</span>
-                    </span>
-
-                    <div>
-                      {isCorrect ? (
-                        <span className="px-2 py-0.5 rounded font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <CheckCircle2 size={13} />
-                          <span>Correct</span>
-                        </span>
-                      ) : isSkipped ? (
-                        <span className="px-2 py-0.5 rounded font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                          Unanswered / Skipped
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1">
-                          <XCircle size={13} />
-                          <span>Incorrect (Chose {studentAns})</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Question Prompt */}
-                  <div className="text-white text-base font-medium mb-4">
-                    <MathText text={q.question} />
-                  </div>
-
-                  {/* Option List with Highlights */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {q.options.map(opt => {
-                      const isOptionCorrect = opt.label === q.correctOption;
-                      const isOptionStudent = opt.label === studentAns;
-
-                      let optBox = 'bg-slate-900 border-slate-800 text-slate-300';
-                      if (isOptionCorrect) {
-                        optBox = 'bg-emerald-500/15 border-emerald-500/60 text-emerald-200 font-semibold';
-                      } else if (isOptionStudent && !isOptionCorrect) {
-                        optBox = 'bg-rose-500/15 border-rose-500/60 text-rose-200';
-                      }
-
-                      return (
-                        <div
-                          key={opt.label}
-                          className={`p-3 rounded-xl border flex items-start gap-2.5 ${optBox}`}
-                        >
-                          <span className={`w-5 h-5 rounded font-mono font-bold flex items-center justify-center shrink-0 ${
-                            isOptionCorrect
-                              ? 'bg-emerald-500 text-slate-950'
-                              : isOptionStudent
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}>
-                            {opt.label}
-                          </span>
-                          <span className="pt-0.5 leading-snug">
-                            <MathText text={opt.text} />
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Explanation card */}
-                  <div className="mt-4 p-4 rounded-xl bg-slate-900/90 border border-sky-500/20 text-xs sm:text-sm text-slate-300 space-y-1">
-                    <span className="text-xs font-bold text-sky-400 uppercase tracking-wider block">
-                      Detailed Explanation:
-                    </span>
-                    <div className="leading-relaxed">
-                      <MathText text={q.explanation} />
-                    </div>
-                  </div>
+                  <Question
+                    question={q}
+                    questionNumber={idx + 1}
+                    totalQuestions={reviewQuestions.length}
+                    studentAnswer={studentAns}
+                    mode="review"
+                  />
                 </div>
               );
             })

@@ -1,26 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import PracticeMode from './components/PracticeMode';
-import ExamSetupModal from './components/ExamSetupModal';
-import ExamInterface from './components/ExamInterface';
-import ResultAnalytics from './components/ResultAnalytics';
-import PastHistory from './components/PastHistory';
-import InstructionsModal from './components/InstructionsModal';
+import Header from './components/Header';
+import HomeDashboard from './views/HomeDashboard';
+import AdminAuthModal from './components/AdminAuthModal';
+import CandidateManager from './components/CandidateManager';
+import CandidateResultsTable from './components/CandidateResultsTable';
 import QuestionBankManager from './components/QuestionBankManager';
 import ExamScheduler from './components/ExamScheduler';
-import ScheduledExamEntry from './components/ScheduledExamEntry';
-import CandidateLogin from './components/CandidateLogin';
-import CandidateManager from './components/CandidateManager';
+import ExamInterface from './components/ExamInterface';
+import ResultAnalytics from './components/ResultAnalytics';
+import PracticeMode from './components/PracticeMode';
+import PastHistory from './components/PastHistory';
+import ExamSetupModal from './components/ExamSetupModal';
+import InstructionsModal from './components/InstructionsModal';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
   updateCandidate, getScheduledExams 
 } from './utils/storage';
+import { ADMIN_SESSION_STORAGE_KEY } from './data/defaultSettings';
+import { Lock, ShieldCheck } from 'lucide-react';
+
+// Views that strictly require Master Administrator authentication
+const ADMIN_PROTECTED_VIEWS = [
+  'candidates',
+  'candidate-manager',
+  'candidate-results',
+  'question-bank',
+  'scheduled-exams',
+  'scheduler',
+  'admin-dashboard'
+];
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('practice'); // 'practice' | 'login' | 'candidates' | 'exam' | 'result' | 'history' | 'question-bank' | 'scheduled-exams'
+  // Primary view defaults strictly to candidate CBT login portal
+  const [currentView, setCurrentView] = useState('login'); // 'login' | 'exam' | 'result' | 'candidates' | 'candidate-results' | 'question-bank' | 'scheduled-exams' | 'practice' | 'history'
+  
+  // Administrator authentication state
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
+    try {
+      return sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [pendingAdminView, setPendingAdminView] = useState(null);
+
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [isJoinPinOpen, setIsJoinPinOpen] = useState(false);
 
   // Active exam configuration
   const [activeExamConfig, setActiveExamConfig] = useState(null);
@@ -37,6 +64,53 @@ export default function App() {
       return [];
     }
   });
+
+  // Global Keyboard Shortcut Listener for Staff Admin Portal: Ctrl + Shift + A
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        setIsAdminAuthModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Protected View Navigator
+  const handleNavigate = (targetView) => {
+    // Normalise alias views
+    let viewKey = targetView;
+    if (viewKey === 'candidate-manager') viewKey = 'candidates';
+    if (viewKey === 'scheduler') viewKey = 'scheduled-exams';
+
+    // If attempting to access an admin view without authentication, intercept
+    if (ADMIN_PROTECTED_VIEWS.includes(viewKey) && !isAdminAuthenticated) {
+      setPendingAdminView(viewKey);
+      setIsAdminAuthModalOpen(true);
+      return;
+    }
+
+    setCurrentView(viewKey);
+  };
+
+  const handleAdminAuthSuccess = () => {
+    setIsAdminAuthenticated(true);
+    const target = pendingAdminView || 'candidates';
+    setCurrentView(target);
+    setPendingAdminView(null);
+  };
+
+  const handleLockAdminSession = () => {
+    setIsAdminAuthenticated(false);
+    try {
+      sessionStorage.removeItem(ADMIN_SESSION_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Failed to clear admin session', e);
+    }
+    // Return immediately to candidate portal
+    setCurrentView('login');
+  };
 
   const saveToHistory = (newAttempt) => {
     try {
@@ -56,14 +130,12 @@ export default function App() {
   const handleStartExam = (config) => {
     setActiveExamConfig(config);
     setIsSetupOpen(false);
-    setIsJoinPinOpen(false);
     setCurrentView('exam');
   };
 
   const handleFinishExam = (completedData) => {
     const { examConfig, answers, examQuestionsBySubject, timeSpentSeconds } = completedData;
 
-    // Calculate total score and subject-level scores
     let totalScore = 0;
     let totalQuestions = 0;
     let totalCorrect = 0;
@@ -88,7 +160,7 @@ export default function App() {
       };
     });
 
-    const isJamb = examConfig.examType?.toLowerCase() === 'jamb';
+    const isJamb = examConfig.examType?.toLowerCase() === 'jamb' || examConfig.examType?.toLowerCase() === 'jamb utme';
     const maxScore = isJamb ? 400 : 100;
     const finalScore = isJamb
       ? totalScore
@@ -106,7 +178,6 @@ export default function App() {
       timeSpentSeconds
     };
 
-    // If this was an authenticated candidate session, record in candidate profile
     if (examConfig.isCandidateSession && examConfig.candidateId) {
       recordCandidateSubmission(examConfig.candidateId, {
         totalScore: finalScore,
@@ -118,7 +189,6 @@ export default function App() {
       });
     }
 
-    // If this was a scheduled exam, record in scheduled exam gradebook
     if (examConfig.isScheduled && examConfig.scheduledExamId) {
       recordExamSubmission(examConfig.scheduledExamId, {
         candidateName: examConfig.candidateName,
@@ -136,7 +206,7 @@ export default function App() {
     setCurrentView('result');
   };
 
-  const handleReviewPastAttempt = (attempt) => {
+  const handleReviewPastAttempt = () => {
     setIsSetupOpen(true);
   };
 
@@ -153,9 +223,8 @@ export default function App() {
     });
   };
 
-  // Launch exam personalized exclusively for the authenticated candidate
+  // Launch personalized candidate CBT session
   const handleLaunchCandidateSession = (candidate, assignedExam = null) => {
-    // Set candidate status to In Progress
     updateCandidate(candidate.id, { status: 'In Progress' });
 
     handleStartExam({
@@ -164,7 +233,6 @@ export default function App() {
       candidateReg: candidate.username,
       candidateId: candidate.id,
       isCandidateSession: true,
-      // Pass candidate's registered subjects list
       subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
       durationMinutes: assignedExam ? assignedExam.durationMinutes : (candidate.examType === 'WASSCE' ? 150 : 120),
       isScheduled: !!assignedExam,
@@ -175,58 +243,78 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col selection:bg-sky-500 selection:text-white">
-      {/* Hide standard navbar when inside live exam to maximize exam focus */}
+      {/* Header with high-security Admin Active banner & zero-admin public interface */}
       {currentView !== 'exam' && (
-        <Navbar
+        <Header
           activeTab={currentView}
-          setActiveTab={(tab) => setCurrentView(tab)}
+          setActiveTab={handleNavigate}
           onOpenInstructions={() => setIsInstructionsOpen(true)}
-          onStartExamModal={() => setIsSetupOpen(true)}
-          onOpenJoinPinModal={() => setIsJoinPinOpen(true)}
+          isAdminAuthenticated={isAdminAuthenticated}
+          onLockAdminSession={handleLockAdminSession}
+          onOpenAdminAuth={() => setIsAdminAuthModalOpen(true)}
         />
       )}
 
       {/* Main View Router */}
-      <div className="flex-1 flex flex-col">
-        {currentView === 'practice' && (
-          <PracticeMode
-            onStartMock={() => setIsSetupOpen(true)}
-            onOpenScheduledModal={() => setIsJoinPinOpen(true)}
-            onOpenCandidateLogin={() => setCurrentView('login')}
-          />
-        )}
-
+      <main className="flex-1 flex flex-col">
+        {/* PUBLIC FOCUSED CANDIDATE CBT PORTAL (Zero admin traces) */}
         {currentView === 'login' && (
-          <CandidateLogin
+          <HomeDashboard
             onLoginSuccess={handleLaunchCandidateSession}
-            onOpenAdminRoster={() => setCurrentView('candidates')}
           />
         )}
 
-        {currentView === 'candidates' && (
-          <CandidateManager
-            onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
-          />
+        {/* ================= ADMIN PROTECTED VIEWS ================= */}
+        {isAdminAuthenticated && (
+          <>
+            {currentView === 'candidates' && (
+              <CandidateManager
+                onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
+              />
+            )}
+
+            {currentView === 'candidate-results' && (
+              <CandidateResultsTable />
+            )}
+
+            {currentView === 'question-bank' && (
+              <QuestionBankManager />
+            )}
+
+            {currentView === 'scheduled-exams' && (
+              <ExamScheduler
+                onDirectLaunchExam={handleDirectLaunchScheduledExam}
+              />
+            )}
+
+            {currentView === 'practice' && (
+              <PracticeMode
+                onStartMock={() => setIsSetupOpen(true)}
+                onOpenCandidateLogin={() => setCurrentView('login')}
+              />
+            )}
+
+            {currentView === 'history' && (
+              <PastHistory
+                historyList={historyList}
+                onClearHistory={handleClearHistory}
+                onStartMock={() => setIsSetupOpen(true)}
+                onReviewAttempt={handleReviewPastAttempt}
+              />
+            )}
+          </>
         )}
 
-        {currentView === 'question-bank' && (
-          <QuestionBankManager />
-        )}
-
-        {currentView === 'scheduled-exams' && (
-          <ExamScheduler
-            onDirectLaunchExam={handleDirectLaunchScheduledExam}
-          />
-        )}
-
+        {/* Live Examination Interface */}
         {currentView === 'exam' && activeExamConfig && (
           <ExamInterface
             examConfig={activeExamConfig}
             onFinishExam={handleFinishExam}
-            onExitExam={() => setCurrentView(activeExamConfig.isCandidateSession ? 'login' : 'practice')}
+            onExitExam={() => setCurrentView('login')}
           />
         )}
 
+        {/* Exam Results & Analytics */}
         {currentView === 'result' && examResult && (
           <ResultAnalytics
             resultData={examResult}
@@ -237,72 +325,108 @@ export default function App() {
                 setIsSetupOpen(true);
               }
             }}
-            onPracticeSubject={(subjectId) => {
-              setCurrentView('practice');
+            onPracticeSubject={() => {
+              if (isAdminAuthenticated) {
+                setCurrentView('practice');
+              } else {
+                setCurrentView('login');
+              }
             }}
           />
         )}
+      </main>
 
-        {currentView === 'history' && (
-          <PastHistory
-            historyList={historyList}
-            onClearHistory={handleClearHistory}
-            onStartMock={() => setIsSetupOpen(true)}
-            onReviewAttempt={handleReviewPastAttempt}
-          />
-        )}
-      </div>
-
-      {/* Footer when not in exam */}
+      {/* Footer when not taking an exam */}
       {currentView !== 'exam' && (
-        <footer className="mt-auto border-t border-slate-800/80 bg-slate-950/60 py-6 text-center text-xs text-slate-500">
+        <footer className="mt-auto border-t border-slate-800/80 bg-slate-950/70 py-6 text-center text-xs text-slate-400">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p>
+            <p className="text-slate-400">
               PrepCBT • High-Standard JAMB UTME & WASSCE Computer-Based Test Simulator
             </p>
+
             <div className="flex flex-wrap items-center justify-center gap-4 text-slate-400">
-              <button onClick={() => setCurrentView('login')} className="hover:text-sky-400 transition font-semibold text-sky-400">
+              <button 
+                onClick={() => setCurrentView('login')} 
+                className="hover:text-sky-400 transition font-medium text-sky-400"
+              >
                 Candidate Login
               </button>
-              <button onClick={() => setCurrentView('candidates')} className="hover:text-sky-400 transition">
-                Candidates & Gradebook
-              </button>
-              <button onClick={() => setCurrentView('question-bank')} className="hover:text-sky-400 transition">
-                Question Bank
-              </button>
-              <button onClick={() => setCurrentView('scheduled-exams')} className="hover:text-sky-400 transition">
-                Scheduled Mocks
-              </button>
-              <button onClick={() => setIsJoinPinOpen(true)} className="hover:text-sky-400 transition">
-                Join with PIN
-              </button>
-              <button onClick={() => setIsInstructionsOpen(true)} className="hover:text-sky-400 transition">
+
+              <button 
+                onClick={() => setIsInstructionsOpen(true)} 
+                className="hover:text-sky-400 transition"
+              >
                 Shortcuts Guide
               </button>
+
+              {/* Privilege Admin Links: Shown ONLY if Admin Session is Active */}
+              {isAdminAuthenticated ? (
+                <>
+                  <button onClick={() => setCurrentView('candidates')} className="hover:text-amber-400 text-amber-300 font-semibold transition">
+                    Candidates Roster
+                  </button>
+                  <button onClick={() => setCurrentView('candidate-results')} className="hover:text-amber-400 text-amber-300 font-semibold transition">
+                    Gradebook
+                  </button>
+                  <button onClick={() => setCurrentView('question-bank')} className="hover:text-amber-400 text-amber-300 font-semibold transition">
+                    Question Bank
+                  </button>
+                  <button onClick={() => setCurrentView('scheduled-exams')} className="hover:text-amber-400 text-amber-300 font-semibold transition">
+                    Mocks Scheduler
+                  </button>
+                  <button 
+                    onClick={handleLockAdminSession}
+                    className="text-rose-400 hover:text-rose-300 font-bold transition flex items-center gap-1"
+                  >
+                    <Lock size={12} />
+                    <span>Lock Admin Session</span>
+                  </button>
+                </>
+              ) : (
+                /* Discrete, unlabelled lock icon entry point for the school administrator */
+                <button
+                  type="button"
+                  onClick={() => setIsAdminAuthModalOpen(true)}
+                  className="p-1.5 text-slate-600 hover:text-slate-400 transition rounded-md hover:bg-slate-800/50"
+                  title="Staff Portal (Ctrl + Shift + A)"
+                  aria-label="Staff Portal"
+                >
+                  <Lock size={13} className="opacity-60 hover:opacity-100" />
+                </button>
+              )}
             </div>
           </div>
         </footer>
       )}
 
-      {/* Setup Exam Modal */}
+      {/* Hidden Master Admin Password Gate Modal */}
+      <AdminAuthModal
+        isOpen={isAdminAuthModalOpen}
+        onClose={() => {
+          setIsAdminAuthModalOpen(false);
+          setPendingAdminView(null);
+        }}
+        onSuccess={handleAdminAuthSuccess}
+      />
+
+      {/* Setup Exam Modal (Used if admin triggers manual mock) */}
       <ExamSetupModal
         isOpen={isSetupOpen}
         onClose={() => setIsSetupOpen(false)}
         onStartExam={handleStartExam}
       />
 
-      {/* Scheduled Exam Entry Modal */}
-      <ScheduledExamEntry
-        isOpen={isJoinPinOpen}
-        onClose={() => setIsJoinPinOpen(false)}
-        onLaunchExam={handleStartExam}
-      />
-
       {/* Guidelines & Shortcuts Modal */}
       <InstructionsModal
         isOpen={isInstructionsOpen}
         onClose={() => setIsInstructionsOpen(false)}
-        onStartMock={() => setIsSetupOpen(true)}
+        onStartMock={() => {
+          if (isAdminAuthenticated) {
+            setIsSetupOpen(true);
+          } else {
+            setCurrentView('login');
+          }
+        }}
       />
     </div>
   );
