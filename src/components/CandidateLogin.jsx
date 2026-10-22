@@ -12,8 +12,8 @@ import {
 
 export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
   const [candidates, setCandidates] = useState([]);
-  const [username, setUsername] = useState('JAMB/2026/014');
-  const [password, setPassword] = useState('PASS-7921');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showForgotHelp, setShowForgotHelp] = useState(false);
@@ -124,76 +124,9 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
         </p>
       </div>
 
-      <div className="w-full grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Column: Quick Test Candidates Drawer */}
-        <div className="md:col-span-5 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-3.5">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 uppercase tracking-wider">
-              <Sparkles size={14} />
-              <span>Instant Test Candidates</span>
-            </div>
-            <span className="text-[11px] text-slate-400 font-mono">
-              {candidates.length} Enrolled
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Click any enrolled candidate below to test how the CBT engine filters questions strictly for their registered stream:
-          </p>
-
-          <div className="space-y-2">
-            {candidates.slice(0, 5).map(cand => {
-              const isSelected = verifiedCandidate?.id === cand.id;
-              const isCompleted = cand.status === 'Completed';
-
-              return (
-                <button
-                  key={cand.id}
-                  type="button"
-                  onClick={() => handleQuickSelectCandidate(cand)}
-                  className={`w-full text-left p-3 rounded-xl border transition flex items-start justify-between gap-2 ${
-                    isSelected
-                      ? 'bg-sky-500/20 border-sky-400 shadow-md ring-1 ring-sky-400'
-                      : 'bg-slate-900/80 border-slate-700 hover:border-slate-500 hover:bg-slate-900'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-xs">{cand.fullName}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-semibold bg-slate-800 text-sky-300 border border-slate-700">
-                        {cand.category || 'General'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                      {cand.username} • {cand.password}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-1">
-                      {cand.registeredSubjects?.map(s => (
-                        <span key={s} className="px-1 py-0.2 rounded bg-slate-800 text-slate-300 text-[9px]">
-                          {getSubjectName(s)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {isCompleted ? (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 shrink-0">
-                      Done ({cand.examResult?.totalScore}/400)
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
-                      Ready
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: High-Authenticity Official Login Box */}
-        <div className="md:col-span-7 bg-slate-800/90 border border-slate-700 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+      <div className="w-full max-w-lg mx-auto">
+        {/* Official Login Box */}
+        <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-700">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 flex items-center justify-center text-white shadow-lg shadow-sky-600/30">

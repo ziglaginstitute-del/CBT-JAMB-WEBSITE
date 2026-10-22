@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  GraduationCap, Key, Lock, User, ShieldCheck, 
-  AlertTriangle, CheckCircle2, ArrowRight, Eye, EyeOff, 
-  Sparkles, BookOpen, Clock, AlertCircle, HelpCircle, Check, MapPin,
-  Calendar, Layers, FileText
+  Key, Lock, User, ShieldCheck, 
+  CheckCircle2, ArrowRight, Eye, EyeOff, 
+  AlertCircle
 } from 'lucide-react';
-import { SUBJECTS } from '../data/questions';
 import { 
-  getCandidates, findCandidateByCredentials, 
-  getScheduledExams 
+  findCandidateByCredentials, 
+  getScheduledExams,
+  syncFromSupabase
 } from '../utils/storage';
 import CandidateExamSlipModal from '../components/CandidateExamSlipModal';
 
 export default function HomeDashboard({ onLoginSuccess }) {
-  const [candidates, setCandidates] = useState([]);
-  const [username, setUsername] = useState('JAMB/2026/014');
-  const [password, setPassword] = useState('PASS-7921');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showForgotHelp, setShowForgotHelp] = useState(false);
@@ -25,29 +23,28 @@ export default function HomeDashboard({ onLoginSuccess }) {
   const [assignedExam, setAssignedExam] = useState(null);
   const [timeWindowStatus, setTimeWindowStatus] = useState({ valid: true, message: '' });
 
-  useEffect(() => {
-    setCandidates(getCandidates());
-  }, []);
-
-  const handleQuickSelectCandidate = (cand) => {
-    setUsername(cand.username);
-    setPassword(cand.password);
-    setErrorMessage('');
-    verifyCandidateCredentials(cand.username, cand.password);
-  };
-
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setErrorMessage('Please enter both your Registration Number and Passcode.');
       return;
     }
-    verifyCandidateCredentials(username, password);
+    await verifyCandidateCredentials(username, password);
   };
 
-  const verifyCandidateCredentials = (userVal, passVal) => {
+  const verifyCandidateCredentials = async (userVal, passVal) => {
     setErrorMessage('');
-    const candidate = findCandidateByCredentials(userVal, passVal);
+    let candidate = findCandidateByCredentials(userVal, passVal);
+
+    if (!candidate) {
+      // Sync from Supabase in case candidate was created remotely
+      try {
+        await syncFromSupabase();
+        candidate = findCandidateByCredentials(userVal, passVal);
+      } catch (err) {
+        console.warn('Supabase sync check failed:', err);
+      }
+    }
 
     if (!candidate) {
       setErrorMessage('Invalid Registration Number or Passcode. Please check your docket credentials or report to the center invigilator.');
@@ -104,10 +101,6 @@ export default function HomeDashboard({ onLoginSuccess }) {
     onLoginSuccess(verifiedCandidate, assignedExam);
   };
 
-  const getSubjectName = (id) => {
-    return SUBJECTS.find(s => s.id === id)?.name || id;
-  };
-
   return (
     <div className="min-h-[85vh] flex flex-col justify-center items-center px-4 py-8 max-w-5xl mx-auto">
       
@@ -125,87 +118,10 @@ export default function HomeDashboard({ onLoginSuccess }) {
         </p>
       </div>
 
-      <div className="w-full grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+      <div className="w-full max-w-lg mx-auto">
         
-        {/* Left Column: Instant Demo Candidate Selector (Purely for candidate testing) */}
-        <div className="md:col-span-5 bg-slate-800/60 border border-slate-700/60 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-3.5">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-700/60">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 uppercase tracking-wider">
-              <Sparkles size={14} />
-              <span>Instant Test Candidates</span>
-            </div>
-            <span className="text-[11px] text-slate-400 font-mono">
-              {candidates.length} Registered
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Select an enrolled candidate below to prefill credentials and inspect their assigned examination slip:
-          </p>
-
-          <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-            {candidates.slice(0, 5).map(cand => {
-              const isSelected = verifiedCandidate?.id === cand.id;
-              const isCompleted = cand.status === 'Completed';
-
-              return (
-                <button
-                  key={cand.id}
-                  type="button"
-                  onClick={() => handleQuickSelectCandidate(cand)}
-                  className={`w-full text-left p-3 rounded-xl border transition flex items-start justify-between gap-2 ${
-                    isSelected
-                      ? 'bg-sky-500/20 border-sky-400 shadow-md ring-1 ring-sky-400'
-                      : 'bg-slate-900/80 border-slate-700 hover:border-slate-500 hover:bg-slate-900'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-xs">{cand.fullName}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-semibold bg-slate-800 text-sky-300 border border-slate-700">
-                        {cand.category || 'General'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-mono text-slate-400 mt-0.5">
-                      {cand.username} • {cand.password}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-1">
-                      {cand.registeredSubjects?.map(s => (
-                        <span key={s} className="px-1 py-0.2 rounded bg-slate-800 text-slate-300 text-[9px]">
-                          {getSubjectName(s)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="text-right flex flex-col items-end shrink-0">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isCompleted 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                        : cand.status === 'In Progress'
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
-                    }`}>
-                      {cand.status || 'Pending'}
-                    </span>
-                    {isCompleted && cand.examResult && (
-                      <span className="text-[10px] font-mono font-bold text-emerald-400 mt-1">
-                        {cand.examResult.totalScore}/400
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="pt-2 border-t border-slate-700/60 text-[11px] text-slate-400 flex items-center gap-1.5">
-            <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
-            <span>Strict subject locking prevents question mix-ups.</span>
-          </div>
-        </div>
-
-        {/* Right Column: Candidate CBT Login Form */}
-        <div className="md:col-span-7 bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+        {/* Candidate CBT Login Form */}
+        <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
           <div className="flex items-center gap-3 pb-5 border-b border-slate-700/80 mb-6">
             <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-inner">
               <Key size={24} className="stroke-[2.2]" />
@@ -261,7 +177,7 @@ export default function HomeDashboard({ onLoginSuccess }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="e.g. PASS-7921"
+                  placeholder="e.g. PASS-XXXX"
                   className="w-full pl-10 pr-12 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
                   required
                 />

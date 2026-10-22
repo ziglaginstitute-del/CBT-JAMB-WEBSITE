@@ -7,7 +7,8 @@ import {
 import { SUBJECTS } from '../data/questions';
 import { 
   getScheduledExams, addScheduledExam, 
-  deleteScheduledExam, getQuestionBank 
+  deleteScheduledExam, getQuestionBank,
+  syncFromSupabase
 } from '../utils/storage';
 
 export default function ExamScheduler({ onDirectLaunchExam }) {
@@ -34,6 +35,9 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
 
   const loadExams = () => {
     setExams(getScheduledExams());
+    syncFromSupabase().then(() => {
+      setExams(getScheduledExams());
+    }).catch(() => {});
   };
 
   const showToast = (msg) => {

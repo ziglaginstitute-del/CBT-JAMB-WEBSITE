@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ArrowUpDown, Award, 
   ChevronRight, Users, Sparkles, BookOpen 
 } from 'lucide-react';
-import { getCandidates, resetCandidateExam } from '../utils/storage';
+import { getCandidates, resetCandidateExam, syncFromSupabase } from '../utils/storage';
 import { SUBJECTS } from '../data/questions';
 
 export default function CandidateResultsTable() {
@@ -17,6 +17,9 @@ export default function CandidateResultsTable() {
 
   const loadData = () => {
     setCandidates(getCandidates());
+    syncFromSupabase().then(() => {
+      setCandidates(getCandidates());
+    }).catch(() => {});
   };
 
   useEffect(() => {

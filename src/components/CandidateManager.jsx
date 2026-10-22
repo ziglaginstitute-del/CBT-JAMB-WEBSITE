@@ -9,7 +9,8 @@ import { SUBJECTS } from '../data/questions';
 import { 
   getCandidates, addCandidate, updateCandidate, 
   deleteCandidate, resetCandidateExam, bulkAddCandidates, 
-  generateCandidateRegNo, generateCandidatePasscode, getScheduledExams 
+  generateCandidateRegNo, generateCandidatePasscode, getScheduledExams,
+  syncFromSupabase
 } from '../utils/storage';
 import CandidateExamSlipModal from './CandidateExamSlipModal';
 import MathText from './MathText';
@@ -102,6 +103,10 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const loadData = () => {
     setCandidates(getCandidates());
     setScheduledExams(getScheduledExams());
+    syncFromSupabase().then(() => {
+      setCandidates(getCandidates());
+      setScheduledExams(getScheduledExams());
+    }).catch(() => {});
   };
 
   const showToast = (msg) => {

@@ -150,8 +150,11 @@ export default function AdminAuthModal({ isOpen, onClose, onSuccess }) {
               </p>
             ) : (
               <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
-                <span>Default setup passcode: <code className="text-amber-400/90 font-mono font-bold bg-slate-800 px-1 py-0.5 rounded">admin2026</code></span>
-                <span className="text-slate-400">Ctrl+Shift+A</span>
+                <span className="flex items-center gap-1 text-slate-400">
+                  <ShieldCheck size={12} className="text-amber-400/80" />
+                  <span>Authorized staff & exam officers only</span>
+                </span>
+                <span className="text-slate-500 font-mono text-[10px]">Ctrl+Shift+A</span>
               </div>
             )}
           </div>

@@ -14,8 +14,9 @@ import ExamSetupModal from './components/ExamSetupModal';
 import InstructionsModal from './components/InstructionsModal';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
-  updateCandidate, getScheduledExams 
+  updateCandidate, getScheduledExams, syncFromSupabase 
 } from './utils/storage';
+import { createExamHistoryRecord, fetchExamHistory } from './services/supabaseService';
 import { ADMIN_SESSION_STORAGE_KEY } from './data/defaultSettings';
 import { Lock, ShieldCheck } from 'lucide-react';
 
@@ -64,6 +65,16 @@ export default function App() {
       return [];
     }
   });
+
+  // Background sync with Supabase on app mount
+  useEffect(() => {
+    syncFromSupabase();
+    fetchExamHistory().then(remoteHistory => {
+      if (remoteHistory && remoteHistory.length > 0) {
+        setHistoryList(remoteHistory);
+      }
+    }).catch(err => console.warn('Supabase initial history sync error:', err));
+  }, []);
 
   // Global Keyboard Shortcut Listener for Staff Admin Portal: Ctrl + Shift + A
   useEffect(() => {
@@ -202,6 +213,7 @@ export default function App() {
     }
 
     saveToHistory(historyRecord);
+    createExamHistoryRecord(historyRecord).catch(e => console.warn('Supabase history write error:', e));
     setExamResult(completedData);
     setCurrentView('result');
   };

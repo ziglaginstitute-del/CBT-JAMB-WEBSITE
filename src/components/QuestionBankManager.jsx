@@ -7,7 +7,7 @@ import {
 import { SUBJECTS, DIFFICULTIES } from '../data/questions';
 import { 
   getQuestionBank, addQuestion, updateQuestion, 
-  deleteQuestion, saveQuestionBank 
+  deleteQuestion, saveQuestionBank, syncFromSupabase 
 } from '../utils/storage';
 import PDFQuestionUploader from './PDFQuestionUploader';
 import MathText from './MathText';
@@ -45,6 +45,9 @@ export default function QuestionBankManager() {
 
   const reloadBank = () => {
     setQuestionBank(getQuestionBank());
+    syncFromSupabase().then(() => {
+      setQuestionBank(getQuestionBank());
+    }).catch(() => {});
   };
 
   const showToast = (msg) => {

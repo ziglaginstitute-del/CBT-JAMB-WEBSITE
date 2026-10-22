@@ -1,9 +1,57 @@
 import { QUESTION_BANK as SEED_QUESTIONS, SUBJECTS } from '../data/questions';
+import {
+  fetchCandidates,
+  createCandidate,
+  updateCandidateRecord,
+  deleteCandidateRecord,
+  fetchQuestions,
+  createQuestion,
+  updateQuestionRecord,
+  deleteQuestionRecord,
+  fetchScheduledExams,
+  createScheduledExam,
+  updateScheduledExamRecord,
+  deleteScheduledExamRecord,
+  fetchExamHistory,
+  createExamHistoryRecord
+} from '../services/supabaseService';
 
 const QUESTION_BANK_KEY = 'prepcbt_question_bank';
 const SCHEDULED_EXAMS_KEY = 'prepcbt_scheduled_exams';
+const CANDIDATES_KEY = 'prepcbt_registered_candidates';
 
-// Initialize and retrieve dynamic Question Bank
+// ============================================================================
+// SUPABASE REAL-TIME BACKGROUND SYNC
+// Pulls live data from Supabase into memory / storage on app initialization
+// ============================================================================
+export const syncFromSupabase = async () => {
+  try {
+    // 1. Sync Candidates
+    const remoteCandidates = await fetchCandidates();
+    if (remoteCandidates && remoteCandidates.length > 0) {
+      saveCandidates(remoteCandidates);
+    }
+
+    // 2. Sync Questions
+    const remoteQuestions = await fetchQuestions();
+    if (remoteQuestions && Object.keys(remoteQuestions).length > 0) {
+      saveQuestionBank(remoteQuestions);
+    }
+
+    // 3. Sync Scheduled Exams
+    const remoteExams = await fetchScheduledExams();
+    if (remoteExams && remoteExams.length > 0) {
+      saveScheduledExams(remoteExams);
+    }
+  } catch (err) {
+    console.warn('Background Supabase sync notice:', err);
+  }
+};
+
+// ============================================================================
+// 1. QUESTION BANK STORAGE & SUPABASE SYNC
+// ============================================================================
+
 export const getQuestionBank = () => {
   try {
     const stored = localStorage.getItem(QUESTION_BANK_KEY);
@@ -42,22 +90,33 @@ export const addQuestion = (question) => {
   };
   bank[sub].unshift(newQ);
   saveQuestionBank(bank);
+
+  // Sync to Supabase in real-time
+  createQuestion(newQ).catch(e => console.warn('Supabase question write error', e));
+
   return newQ;
 };
 
 export const updateQuestion = (id, updatedFields) => {
   const bank = getQuestionBank();
   let found = false;
+  let targetQ = null;
+
   for (const sub of Object.keys(bank)) {
     const idx = bank[sub].findIndex(q => q.id === id);
     if (idx !== -1) {
       bank[sub][idx] = { ...bank[sub][idx], ...updatedFields };
+      targetQ = bank[sub][idx];
       found = true;
       break;
     }
   }
   if (found) {
     saveQuestionBank(bank);
+    // Sync to Supabase in real-time
+    if (targetQ) {
+      updateQuestionRecord(id, updatedFields).catch(e => console.warn('Supabase question update error', e));
+    }
   }
   return found;
 };
@@ -69,6 +128,8 @@ export const deleteQuestion = (id) => {
     bank[sub] = bank[sub].filter(q => q.id !== id);
     if (bank[sub].length !== beforeCount) {
       saveQuestionBank(bank);
+      // Sync to Supabase in real-time
+      deleteQuestionRecord(id).catch(e => console.warn('Supabase question delete error', e));
       return true;
     }
   }
@@ -81,16 +142,22 @@ export const bulkAddQuestions = (newQuestions) => {
   newQuestions.forEach(q => {
     const sub = q.subject || 'english';
     if (!bank[sub]) bank[sub] = [];
-    bank[sub].unshift({
+    const formatted = {
       ...q,
       id: `q-imp-${Date.now()}-${count++}-${Math.random().toString(36).substr(2, 6)}`
-    });
+    };
+    bank[sub].unshift(formatted);
+    // Sync to Supabase
+    createQuestion(formatted).catch(e => console.warn('Supabase bulk question write error', e));
   });
   saveQuestionBank(bank);
   return newQuestions.length;
 };
 
-// Seed Scheduled Exams
+// ============================================================================
+// 2. SCHEDULED EXAMS STORAGE & SUPABASE SYNC
+// ============================================================================
+
 const getSeedExams = () => {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -104,7 +171,7 @@ const getSeedExams = () => {
       examType: 'jamb',
       subjectIds: ['english', 'mathematics', 'physics', 'chemistry'],
       durationMinutes: 60,
-      startsAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // active now
+      startsAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
       endsAt: tomorrow.toISOString(),
       questionsBySubject: {
         english: bank.english || [],
@@ -147,7 +214,6 @@ const getSeedExams = () => {
   ];
 };
 
-// Retrieve Scheduled Exams
 export const getScheduledExams = () => {
   try {
     const stored = localStorage.getItem(SCHEDULED_EXAMS_KEY);
@@ -184,6 +250,10 @@ export const addScheduledExam = (exam) => {
   };
   exams.unshift(newExam);
   saveScheduledExams(exams);
+
+  // Sync to Supabase in real-time
+  createScheduledExam(newExam).catch(e => console.warn('Supabase scheduled exam write error', e));
+
   return newExam;
 };
 
@@ -191,6 +261,10 @@ export const deleteScheduledExam = (id) => {
   const exams = getScheduledExams();
   const filtered = exams.filter(e => e.id !== id);
   saveScheduledExams(filtered);
+
+  // Sync to Supabase in real-time
+  deleteScheduledExamRecord(id).catch(e => console.warn('Supabase scheduled exam delete error', e));
+
   return filtered;
 };
 
@@ -205,18 +279,26 @@ export const recordExamSubmission = (examId, submission) => {
   const exam = exams.find(e => e.id === examId);
   if (exam) {
     if (!exam.submissions) exam.submissions = [];
-    exam.submissions.unshift({
+    const newSubmission = {
       ...submission,
       submittedAt: submission.submittedAt || new Date().toISOString()
-    });
+    };
+    exam.submissions.unshift(newSubmission);
     saveScheduledExams(exams);
+
+    // Sync to Supabase in real-time
+    updateScheduledExamRecord(examId, { submissions: exam.submissions }).catch(e =>
+      console.warn('Supabase exam submission write error', e)
+    );
+
     return true;
   }
   return false;
 };
 
-// ================= CANDIDATE MANAGEMENT & AUTHENTICATION =================
-const CANDIDATES_KEY = 'prepcbt_registered_candidates';
+// ============================================================================
+// 3. CANDIDATE MANAGEMENT & AUTHENTICATION
+// ============================================================================
 
 export const generateCandidateRegNo = (examType = 'JAMB UTME') => {
   const prefix = examType.includes('WASSCE') ? 'WA/2026' : 'JAMB/2026';
@@ -379,6 +461,10 @@ export const addCandidate = (candidateData) => {
   };
   candidates.unshift(newCandidate);
   saveCandidates(candidates);
+
+  // Sync to Supabase in real-time
+  createCandidate(newCandidate).catch(e => console.warn('Supabase candidate create error', e));
+
   return newCandidate;
 };
 
@@ -388,6 +474,10 @@ export const updateCandidate = (id, fields) => {
   if (idx !== -1) {
     candidates[idx] = { ...candidates[idx], ...fields };
     saveCandidates(candidates);
+
+    // Sync to Supabase in real-time
+    updateCandidateRecord(id, fields).catch(e => console.warn('Supabase candidate update error', e));
+
     return candidates[idx];
   }
   return null;
@@ -397,6 +487,10 @@ export const deleteCandidate = (id) => {
   const candidates = getCandidates();
   const filtered = candidates.filter(c => c.id !== id);
   saveCandidates(filtered);
+
+  // Sync to Supabase in real-time
+  deleteCandidateRecord(id).catch(e => console.warn('Supabase candidate delete error', e));
+
   return filtered;
 };
 
@@ -407,6 +501,12 @@ export const resetCandidateExam = (candidateId) => {
     candidate.status = 'Pending';
     candidate.examResult = null;
     saveCandidates(candidates);
+
+    // Sync to Supabase in real-time
+    updateCandidateRecord(candidateId, { status: 'Pending', examResult: null }).catch(e =>
+      console.warn('Supabase reset exam error', e)
+    );
+
     return true;
   }
   return false;
@@ -430,7 +530,7 @@ export const bulkAddCandidates = (newCandidates) => {
   let added = 0;
   newCandidates.forEach(c => {
     const examType = c.examType || 'JAMB UTME';
-    candidates.unshift({
+    const candObj = {
       ...c,
       id: c.id || `cand-${Date.now()}-${added++}-${Math.random().toString(36).substr(2, 5)}`,
       username: c.username?.trim() || generateCandidateRegNo(examType),
@@ -439,7 +539,10 @@ export const bulkAddCandidates = (newCandidates) => {
       status: c.status || 'Pending',
       examResult: null,
       registeredAt: new Date().toISOString()
-    });
+    };
+    candidates.unshift(candObj);
+    // Sync to Supabase
+    createCandidate(candObj).catch(e => console.warn('Supabase bulk candidate write error', e));
   });
   saveCandidates(candidates);
   return newCandidates.length;
@@ -452,8 +555,13 @@ export const recordCandidateSubmission = (candidateId, resultData) => {
     candidate.status = 'Completed';
     candidate.examResult = resultData;
     saveCandidates(candidates);
+
+    // Sync to Supabase in real-time
+    updateCandidateRecord(candidate.id, { status: 'Completed', examResult: resultData }).catch(e =>
+      console.warn('Supabase candidate submission update error', e)
+    );
+
     return candidate;
   }
   return null;
 };
-
