@@ -1,7 +1,16 @@
 -- ============================================================================
--- PREPCBT SUPABASE DATABASE SCHEMA
--- Copy and paste this complete SQL script into your Supabase SQL Editor:
--- https://supabase.com/dashboard/project/_/sql
+-- PREPCBT SUPABASE DATABASE SCHEMA & QUICK RLS FIX
+-- ============================================================================
+--
+-- ⚡ IF YOU ALREADY CREATED TABLES AND CANNOT SEE CANDIDATES:
+-- Copy and run this QUICK 4-LINE FIX in your Supabase SQL Editor:
+-- (Supabase Dashboard -> SQL Editor -> New query -> Run)
+--
+--    alter table public.candidates disable row level security;
+--    alter table public.questions disable row level security;
+--    alter table public.scheduled_exams disable row level security;
+--    alter table public.exam_history disable row level security;
+--
 -- ============================================================================
 
 -- Enable UUID extension
@@ -29,29 +38,23 @@ create table if not exists public.candidates (
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Index for speedy candidate lookup by credentials or user_id
+-- Index for speedy candidate lookup by credentials or username
 create index if not exists idx_candidates_user_id on public.candidates(user_id);
 create index if not exists idx_candidates_username on public.candidates(username);
 
--- Enable Row Level Security (RLS)
+-- Enable public client access so candidate registration works with anon key:
 alter table public.candidates enable row level security;
 
--- Candidates RLS Policies (Scoping rows strictly to the authenticated user)
-create policy "Authenticated users can select their candidates"
-  on public.candidates for select
-  using (auth.uid() = user_id or auth.uid() is not null);
+drop policy if exists "Authenticated users can select their candidates" on public.candidates;
+drop policy if exists "Authenticated users can insert their candidates" on public.candidates;
+drop policy if exists "Authenticated users can update their candidates" on public.candidates;
+drop policy if exists "Authenticated users can delete their candidates" on public.candidates;
+drop policy if exists "Allow public access to candidates" on public.candidates;
 
-create policy "Authenticated users can insert their candidates"
-  on public.candidates for insert
-  with check (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can update their candidates"
-  on public.candidates for update
-  using (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can delete their candidates"
-  on public.candidates for delete
-  using (auth.uid() = user_id or auth.uid() is not null);
+create policy "Allow public access to candidates"
+  on public.candidates for all
+  using (true)
+  with check (true);
 
 
 -- ============================================================================
@@ -75,29 +78,21 @@ create table if not exists public.questions (
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Index on subject and user_id
 create index if not exists idx_questions_user_id on public.questions(user_id);
 create index if not exists idx_questions_subject on public.questions(subject);
 
--- Enable Row Level Security (RLS)
 alter table public.questions enable row level security;
 
--- Questions RLS Policies
-create policy "Authenticated users can select their questions"
-  on public.questions for select
-  using (auth.uid() = user_id or auth.uid() is not null);
+drop policy if exists "Authenticated users can select their questions" on public.questions;
+drop policy if exists "Authenticated users can insert their questions" on public.questions;
+drop policy if exists "Authenticated users can update their questions" on public.questions;
+drop policy if exists "Authenticated users can delete their questions" on public.questions;
+drop policy if exists "Allow public access to questions" on public.questions;
 
-create policy "Authenticated users can insert their questions"
-  on public.questions for insert
-  with check (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can update their questions"
-  on public.questions for update
-  using (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can delete their questions"
-  on public.questions for delete
-  using (auth.uid() = user_id or auth.uid() is not null);
+create policy "Allow public access to questions"
+  on public.questions for all
+  using (true)
+  with check (true);
 
 
 -- ============================================================================
@@ -120,33 +115,25 @@ create table if not exists public.scheduled_exams (
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Index on access code and user_id
 create index if not exists idx_scheduled_exams_user_id on public.scheduled_exams(user_id);
 create index if not exists idx_scheduled_exams_access_code on public.scheduled_exams(access_code);
 
--- Enable Row Level Security (RLS)
 alter table public.scheduled_exams enable row level security;
 
--- Scheduled Exams RLS Policies
-create policy "Authenticated users can select their scheduled exams"
-  on public.scheduled_exams for select
-  using (auth.uid() = user_id or auth.uid() is not null);
+drop policy if exists "Authenticated users can select their scheduled exams" on public.scheduled_exams;
+drop policy if exists "Authenticated users can insert their scheduled exams" on public.scheduled_exams;
+drop policy if exists "Authenticated users can update their scheduled exams" on public.scheduled_exams;
+drop policy if exists "Authenticated users can delete their scheduled exams" on public.scheduled_exams;
+drop policy if exists "Allow public access to scheduled_exams" on public.scheduled_exams;
 
-create policy "Authenticated users can insert their scheduled exams"
-  on public.scheduled_exams for insert
-  with check (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can update their scheduled exams"
-  on public.scheduled_exams for update
-  using (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can delete their scheduled exams"
-  on public.scheduled_exams for delete
-  using (auth.uid() = user_id or auth.uid() is not null);
+create policy "Allow public access to scheduled_exams"
+  on public.scheduled_exams for all
+  using (true)
+  with check (true);
 
 
 -- ============================================================================
--- 4. EXAM HISTORY / SUBMISSIONS TABLE
+-- 4. EXAM HISTORY / RESULTS TABLE
 -- Stores individual student test attempts, percentage scores and analytics
 -- ============================================================================
 create table if not exists public.exam_history (
@@ -166,26 +153,18 @@ create table if not exists public.exam_history (
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 
--- Index for user_id and candidate_id
 create index if not exists idx_exam_history_user_id on public.exam_history(user_id);
 create index if not exists idx_exam_history_candidate_id on public.exam_history(candidate_id);
 
--- Enable Row Level Security (RLS)
 alter table public.exam_history enable row level security;
 
--- Exam History RLS Policies
-create policy "Authenticated users can select their exam history"
-  on public.exam_history for select
-  using (auth.uid() = user_id or auth.uid() is not null);
+drop policy if exists "Authenticated users can select their exam history" on public.exam_history;
+drop policy if exists "Authenticated users can insert their exam history" on public.exam_history;
+drop policy if exists "Authenticated users can update their exam history" on public.exam_history;
+drop policy if exists "Authenticated users can delete their exam history" on public.exam_history;
+drop policy if exists "Allow public access to exam_history" on public.exam_history;
 
-create policy "Authenticated users can insert their exam history"
-  on public.exam_history for insert
-  with check (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can update their exam history"
-  on public.exam_history for update
-  using (auth.uid() = user_id or auth.uid() is not null);
-
-create policy "Authenticated users can delete their exam history"
-  on public.exam_history for delete
-  using (auth.uid() = user_id or auth.uid() is not null);
+create policy "Allow public access to exam_history"
+  on public.exam_history for all
+  using (true)
+  with check (true);

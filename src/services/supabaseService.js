@@ -24,6 +24,37 @@ export const getCurrentUserId = async () => {
 // Table: 'candidates'
 // ============================================================================
 
+// Helper to test if Supabase table is writable and diagnose RLS blocking
+export const checkSupabaseStatus = async () => {
+  try {
+    const testId = 'test-ping-' + Date.now();
+    const { error: insErr } = await supabase.from('candidates').upsert({
+      id: testId,
+      full_name: 'Ping Test',
+      username: 'PING_CHECK',
+      password: 'PIN',
+      status: 'Pending'
+    });
+
+    if (insErr) {
+      console.warn('Supabase status check failed:', insErr);
+      return {
+        connected: false,
+        code: insErr.code,
+        message: insErr.message,
+        isRlsBlocked: insErr.code === '42501' || insErr.message?.toLowerCase().includes('row-level security')
+      };
+    }
+
+    // Clean up ping row
+    await supabase.from('candidates').delete().eq('id', testId);
+    return { connected: true, isRlsBlocked: false, message: 'Connected & Writable' };
+  } catch (err) {
+    console.warn('Supabase connection check error:', err);
+    return { connected: false, message: err.message || 'Network error' };
+  }
+};
+
 /**
  * Load all candidates belonging to the authenticated user
  */
@@ -88,13 +119,52 @@ export const createCandidate = async (candidate) => {
       .single();
 
     if (error) {
-      console.warn('Supabase createCandidate notice:', error.message);
-      return null;
+      console.warn('Supabase createCandidate notice:', error.message, error.code);
+      return { success: false, error };
     }
-    return data;
+    return { success: true, data };
   } catch (err) {
     console.warn('Supabase network error in createCandidate:', err);
-    return null;
+    return { success: false, error: err };
+  }
+};
+
+/**
+ * Push all local candidates to Supabase in bulk
+ */
+export const pushAllCandidatesToSupabase = async (candidatesList) => {
+  try {
+    if (!candidatesList || candidatesList.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const rows = candidatesList.map(c => ({
+      id: c.id,
+      full_name: c.fullName,
+      exam_type: c.examType || 'JAMB UTME',
+      category: c.category || 'Science',
+      username: c.username,
+      password: c.password,
+      registered_subjects: c.registeredSubjects || [],
+      center: c.center || 'PrepCBT Center 01',
+      seat_number: c.seatNumber || 'Seat 01',
+      scheduled_exam_id: c.scheduledExamId || null,
+      status: c.status || 'Pending',
+      exam_result: c.examResult || null
+    }));
+
+    const { data, error } = await supabase
+      .from('candidates')
+      .upsert(rows);
+
+    if (error) {
+      console.warn('Supabase pushAllCandidatesToSupabase error:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, count: rows.length };
+  } catch (err) {
+    console.warn('Supabase pushAllCandidatesToSupabase network error:', err);
+    return { success: false, error: err };
   }
 };
 

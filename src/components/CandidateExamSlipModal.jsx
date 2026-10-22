@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   X, Printer, GraduationCap, ShieldCheck, 
-  Calendar, Clock, MapPin, User, CheckCircle2, QrCode, BookOpen
+  MapPin, User, QrCode, BookOpen, ArrowLeft
 } from 'lucide-react';
 import { SUBJECTS } from '../data/questions';
 
 export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
+  // Global Escape key listener to close slip anytime
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !candidate) return null;
 
   const handlePrint = () => {
@@ -17,28 +29,41 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
+    <div 
+      className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white"
+      onClick={(e) => {
+        // Clicking outside the docket card closes the modal
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 print:border-none print:shadow-none print:bg-white print:text-black print:my-0">
         
-        {/* Modal Controls (Hidden in Print) */}
-        <div className="bg-slate-950 px-6 py-3.5 border-b border-slate-800 flex items-center justify-between text-xs print:hidden">
+        {/* Top Modal Controls Header (Hidden in Print) */}
+        <div className="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between text-xs print:hidden">
           <div className="flex items-center gap-2 text-sky-400 font-bold">
             <ShieldCheck size={16} />
             <span>Official Candidate CBT Examination Docket / Slip</span>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold transition shadow-sm"
+              title="Print official docket"
             >
               <Printer size={14} />
               <span>Print Slip</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold transition border border-slate-700"
+              title="Close modal (Esc)"
             >
-              <X size={18} />
+              <X size={14} />
+              <span>Close Slip</span>
             </button>
           </div>
         </div>
@@ -184,6 +209,32 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
             </div>
           </div>
 
+        </div>
+
+        {/* Bottom Action Footer (Hidden in Print) */}
+        <div className="bg-slate-950 px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
+          <div className="text-xs text-slate-400 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Printed docket is ready • Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">ESC</kbd> or click outside anytime to close</span>
+          </div>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-bold text-xs transition"
+            >
+              <Printer size={15} />
+              <span>Print Slip</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-600/30"
+            >
+              <ArrowLeft size={15} />
+              <span>Done / Close Slip</span>
+            </button>
+          </div>
         </div>
 
       </div>

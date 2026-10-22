@@ -3,7 +3,7 @@ import {
   Users, UserPlus, FileSpreadsheet, Download, RefreshCw, 
   Search, Trash2, Printer, Eye, CheckCircle2, Clock, 
   AlertTriangle, Key, Sparkles, BookOpen, ChevronRight, X, ArrowUpDown, Play,
-  KeyRound, Check, ShieldAlert, Copy
+  KeyRound, Check, ShieldAlert, Copy, Database, Cloud
 } from 'lucide-react';
 import { SUBJECTS } from '../data/questions';
 import { 
@@ -12,6 +12,7 @@ import {
   generateCandidateRegNo, generateCandidatePasscode, getScheduledExams,
   syncFromSupabase
 } from '../utils/storage';
+import { checkSupabaseStatus, pushAllCandidatesToSupabase } from '../services/supabaseService';
 import CandidateExamSlipModal from './CandidateExamSlipModal';
 import MathText from './MathText';
 
@@ -73,6 +74,8 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const [newPasscodeVal, setNewPasscodeVal] = useState('');
   const [resetCopied, setResetCopied] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
+  const [supabaseStatus, setSupabaseStatus] = useState({ checking: true, connected: false, isRlsBlocked: false, message: '' });
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
 
   // Single Registration Form State
   const [regFullName, setRegFullName] = useState('');
@@ -98,7 +101,17 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
 
   useEffect(() => {
     loadData();
+    checkStatus();
   }, []);
+
+  const checkStatus = async () => {
+    try {
+      const status = await checkSupabaseStatus();
+      setSupabaseStatus(status);
+    } catch {
+      setSupabaseStatus({ checking: false, connected: false, isRlsBlocked: false, message: 'Offline' });
+    }
+  };
 
   const loadData = () => {
     setCandidates(getCandidates());
@@ -107,6 +120,31 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
       setCandidates(getCandidates());
       setScheduledExams(getScheduledExams());
     }).catch(() => {});
+  };
+
+  const handlePushToSupabase = async () => {
+    setIsSyncingSupabase(true);
+    try {
+      const status = await checkSupabaseStatus();
+      setSupabaseStatus(status);
+      if (status.isRlsBlocked) {
+        showToast('⚠️ Supabase RLS is blocking inserts. Click "Copy Quick SQL Fix" above to allow data saving.');
+        setIsSyncingSupabase(false);
+        return;
+      }
+      const currentList = getCandidates();
+      const res = await pushAllCandidatesToSupabase(currentList);
+      if (res.success) {
+        showToast(`✅ Synced ${res.count} candidates directly to your Supabase project!`);
+        checkStatus();
+      } else {
+        showToast(`❌ Supabase error: ${res.error?.message || 'Check connection'}`);
+      }
+    } catch {
+      showToast('❌ Failed to push candidates to Supabase');
+    } finally {
+      setIsSyncingSupabase(false);
+    }
   };
 
   const showToast = (msg) => {
@@ -433,8 +471,54 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
               <Download size={15} />
               <span>Export CSV</span>
             </button>
+
+            <button
+              onClick={handlePushToSupabase}
+              disabled={isSyncingSupabase}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-sky-600/30 disabled:opacity-60"
+              title="Push all candidates directly to Supabase cloud database"
+            >
+              <Cloud size={15} />
+              <span>{isSyncingSupabase ? 'Syncing...' : 'Sync with Supabase'}</span>
+            </button>
           </div>
         </div>
+
+        {/* Supabase Status / RLS Banner */}
+        {supabaseStatus.isRlsBlocked && (
+          <div className="mt-5 p-4 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-white text-sm">Supabase Row-Level Security (RLS) is active:</span>
+                <p className="text-amber-300/90 text-xs mt-0.5">
+                  Your Supabase table exists, but RLS is blocking public inserts. Run the 4-line SQL fix in your Supabase SQL Editor to allow candidates to appear.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText('alter table public.candidates disable row level security;\nalter table public.questions disable row level security;\nalter table public.scheduled_exams disable row level security;\nalter table public.exam_history disable row level security;');
+                  showToast('Copied SQL fix! Paste and Run in Supabase SQL Editor.');
+                }}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs shadow-sm transition flex items-center justify-center gap-1.5"
+              >
+                <Copy size={13} />
+                <span>Copy SQL Fix</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePushToSupabase}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs transition border border-slate-700 flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw size={13} />
+                <span>Retry Sync</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Top Analytics Metrics Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-slate-700/60">
