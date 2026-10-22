@@ -24,30 +24,22 @@ export const getCurrentUserId = async () => {
 // Table: 'candidates'
 // ============================================================================
 
-// Helper to test if Supabase table is writable and diagnose RLS blocking
+// Helper to test if Supabase table is reachable without writing any dummy data
 export const checkSupabaseStatus = async () => {
   try {
-    const testId = 'test-ping-' + Date.now();
-    const { error: insErr } = await supabase.from('candidates').upsert({
-      id: testId,
-      full_name: 'Ping Test',
-      username: 'PING_CHECK',
-      password: 'PIN',
-      status: 'Pending'
-    });
+    // Pure read-only query: checks connectivity without creating any test rows
+    const { error } = await supabase.from('candidates').select('id').limit(1);
 
-    if (insErr) {
-      console.warn('Supabase status check failed:', insErr);
+    if (error) {
+      console.warn('Supabase status check notice:', error);
       return {
         connected: false,
-        code: insErr.code,
-        message: insErr.message,
-        isRlsBlocked: insErr.code === '42501' || insErr.message?.toLowerCase().includes('row-level security')
+        code: error.code,
+        message: error.message,
+        isRlsBlocked: error.code === '42501' || error.message?.toLowerCase().includes('row-level security')
       };
     }
 
-    // Clean up ping row
-    await supabase.from('candidates').delete().eq('id', testId);
     return { connected: true, isRlsBlocked: false, message: 'Connected & Writable' };
   } catch (err) {
     console.warn('Supabase connection check error:', err);
@@ -70,25 +62,26 @@ export const fetchCandidates = async () => {
       return null;
     }
 
-    // Map database snake_case fields to application camelCase
-    return (data || []).map(row => ({
-      id: row.id,
-      fullName: row.full_name,
-      examType: row.exam_type,
-      category: row.category,
-      username: row.username,
-      password: row.password,
-      registeredSubjects: row.registered_subjects || [],
-      center: row.center,
-      seatNumber: row.seat_number,
-      scheduledExamId: row.scheduled_exam_id,
-      status: row.status,
-      examResult: row.exam_result,
-      registeredAt: row.created_at
-    }));
+    // Map database snake_case fields to application camelCase and ignore any ping test rows
+    return (data || [])
+      .filter(row => !row.full_name?.toLowerCase().includes('ping') && !row.username?.toLowerCase().includes('ping'))
+      .map(row => ({
+        id: row.id,
+        fullName: row.full_name,
+        examType: row.exam_type,
+        category: row.category,
+        username: row.username,
+        password: row.password,
+        registeredSubjects: row.registered_subjects || [],
+        center: row.center,
+        seatNumber: row.seat_number,
+        scheduledExamId: row.scheduled_exam_id,
+        status: row.status,
+        examResult: row.exam_result,
+        registeredAt: row.created_at
+      }));
   } catch (err) {
     console.warn('Supabase network error in fetchCandidates:', err);
-    return null;
   }
 };
 

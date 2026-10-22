@@ -1,14 +1,23 @@
 import React, { useEffect } from 'react';
 import { 
   X, Printer, GraduationCap, ShieldCheck, 
-  MapPin, User, QrCode, BookOpen, ArrowLeft
+  MapPin, User, QrCode, BookOpen, ArrowLeft, Play, AlertCircle
 } from 'lucide-react';
 import { SUBJECTS } from '../data/questions';
 
-export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
+export default function CandidateExamSlipModal({ 
+  candidate, 
+  isOpen = true, 
+  onClose,
+  assignedExam = null,
+  timeWindowStatus = { valid: true, message: '' },
+  onConfirmStart = null
+}) {
+  const isVisible = isOpen !== false && !!candidate;
+
   // Global Escape key listener to close slip anytime
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isVisible) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         onClose();
@@ -16,9 +25,9 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isVisible, onClose]);
 
-  if (!isOpen || !candidate) return null;
+  if (!isVisible) return null;
 
   const handlePrint = () => {
     window.print();
@@ -27,6 +36,10 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
   const getSubjectName = (id) => {
     return SUBJECTS.find(s => s.id === id)?.name || id;
   };
+
+  const isCompleted = candidate.status === 'Completed';
+  const isWindowBlocked = timeWindowStatus && !timeWindowStatus.valid;
+  const canStart = onConfirmStart && !isCompleted && !isWindowBlocked;
 
   return (
     <div 
@@ -47,6 +60,16 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
             <span>Official Candidate CBT Examination Docket / Slip</span>
           </div>
           <div className="flex items-center gap-2">
+            {canStart && (
+              <button
+                type="button"
+                onClick={onConfirmStart}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg font-bold transition shadow-sm"
+              >
+                <Play size={13} className="fill-white" />
+                <span>Start CBT Exam</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handlePrint}
@@ -95,6 +118,21 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
               </div>
             </div>
           </div>
+
+          {/* Time Window or Completion Alert Banner (if applicable) */}
+          {isWindowBlocked && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+              <span>{timeWindowStatus.message}</span>
+            </div>
+          )}
+
+          {isCompleted && (
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-start gap-2">
+              <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+              <span>This candidate has already completed this CBT examination. Re-sits require invigilator authorization.</span>
+            </div>
+          )}
 
           {/* Candidate Profile Details & Passport Photo */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-6 items-start pb-6 border-b border-slate-200">
@@ -146,7 +184,9 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
 
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Exam Status</span>
-                <p className="font-bold text-emerald-700 uppercase">{candidate.status || 'Pending'}</p>
+                <p className={`font-bold uppercase ${isCompleted ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  {candidate.status || 'Pending'}
+                </p>
               </div>
             </div>
           </div>
@@ -215,7 +255,7 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
         <div className="bg-slate-950 px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
           <div className="text-xs text-slate-400 flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>Printed docket is ready • Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">ESC</kbd> or click outside anytime to close</span>
+            <span>Identity verified • Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">ESC</kbd> or click outside to dismiss</span>
           </div>
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
             <button
@@ -229,11 +269,22 @@ export default function CandidateExamSlipModal({ candidate, isOpen, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-sky-600/30"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs transition border border-slate-700"
             >
               <ArrowLeft size={15} />
-              <span>Done / Close Slip</span>
+              <span>Back</span>
             </button>
+            {onConfirmStart && (
+              <button
+                type="button"
+                onClick={onConfirmStart}
+                disabled={!canStart}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-black text-xs transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Play size={15} className="fill-white" />
+                <span>Start CBT Examination</span>
+              </button>
+            )}
           </div>
         </div>
 

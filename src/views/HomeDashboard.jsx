@@ -230,6 +230,7 @@ export default function HomeDashboard({ onLoginSuccess }) {
       {verifiedCandidate && (
         <CandidateExamSlipModal
           candidate={verifiedCandidate}
+          isOpen={true}
           assignedExam={assignedExam}
           timeWindowStatus={timeWindowStatus}
           onClose={() => setVerifiedCandidate(null)}

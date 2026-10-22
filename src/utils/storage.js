@@ -26,10 +26,20 @@ const CANDIDATES_KEY = 'prepcbt_registered_candidates';
 // ============================================================================
 export const syncFromSupabase = async () => {
   try {
-    // 1. Sync Candidates
+    // 1. Sync Candidates safely by merging
     const remoteCandidates = await fetchCandidates();
     if (remoteCandidates && remoteCandidates.length > 0) {
-      saveCandidates(remoteCandidates);
+      const localCandidates = getCandidates();
+      const candidateMap = new Map();
+      // Add remote candidates
+      remoteCandidates.forEach(c => candidateMap.set(c.id, c));
+      // Keep any local candidate that isn't on remote yet (e.g. pending sync)
+      localCandidates.forEach(c => {
+        if (!candidateMap.has(c.id)) {
+          candidateMap.set(c.id, c);
+        }
+      });
+      saveCandidates(Array.from(candidateMap.values()));
     }
 
     // 2. Sync Questions
@@ -38,10 +48,18 @@ export const syncFromSupabase = async () => {
       saveQuestionBank(remoteQuestions);
     }
 
-    // 3. Sync Scheduled Exams
+    // 3. Sync Scheduled Exams safely by merging
     const remoteExams = await fetchScheduledExams();
     if (remoteExams && remoteExams.length > 0) {
-      saveScheduledExams(remoteExams);
+      const localExams = getScheduledExams();
+      const examMap = new Map();
+      remoteExams.forEach(e => examMap.set(e.id, e));
+      localExams.forEach(e => {
+        if (!examMap.has(e.id)) {
+          examMap.set(e.id, e);
+        }
+      });
+      saveScheduledExams(Array.from(examMap.values()));
     }
   } catch (err) {
     console.warn('Background Supabase sync notice:', err);
@@ -422,7 +440,19 @@ export const getCandidates = () => {
   try {
     const stored = localStorage.getItem(CANDIDATES_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      // Automatically purge any dummy ping test artifacts
+      const cleaned = parsed.filter(c => 
+        !c.fullName?.toLowerCase().includes('ping') && 
+        !c.username?.toLowerCase().includes('ping') && 
+        !c.id?.startsWith('test-ping')
+      );
+      if (cleaned.length !== parsed.length) {
+        try {
+          localStorage.setItem(CANDIDATES_KEY, JSON.stringify(cleaned));
+        } catch {}
+      }
+      return cleaned;
     }
   } catch (err) {
     console.error('Failed to parse candidates from localStorage', err);
@@ -515,12 +545,22 @@ export const resetCandidateExam = (candidateId) => {
 export const findCandidateByCredentials = (usernameOrReg, password) => {
   if (!usernameOrReg || !password) return null;
   const candidates = getCandidates();
+  
   const cleanInput = usernameOrReg.trim().toLowerCase();
-  const cleanPass = password.trim();
+  const strippedInput = cleanInput.replace(/[^a-z0-9]/g, '');
+
+  const cleanPass = password.trim().toLowerCase();
+  const strippedPass = cleanPass.replace(/[^a-z0-9]/g, '');
 
   return candidates.find(c => {
-    const matchUsername = c.username?.trim().toLowerCase() === cleanInput;
-    const matchPassword = c.password?.trim() === cleanPass;
+    const candUser = (c.username || '').trim().toLowerCase();
+    const candUserStripped = candUser.replace(/[^a-z0-9]/g, '');
+    const matchUsername = candUser === cleanInput || (strippedInput.length > 0 && candUserStripped === strippedInput);
+
+    const candPass = (c.password || '').trim().toLowerCase();
+    const candPassStripped = candPass.replace(/[^a-z0-9]/g, '');
+    const matchPassword = candPass === cleanPass || (strippedPass.length > 0 && candPassStripped === strippedPass);
+
     return matchUsername && matchPassword;
   }) || null;
 };
