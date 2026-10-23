@@ -19,6 +19,51 @@ import {
 const QUESTION_BANK_KEY = 'prepcbt_question_bank';
 const SCHEDULED_EXAMS_KEY = 'prepcbt_scheduled_exams';
 const CANDIDATES_KEY = 'prepcbt_registered_candidates';
+const RESULTS_RELEASED_KEY = 'prepcbt_results_released';
+
+// Global Result Release Approval State (controlled by admin)
+export const getGlobalResultsReleased = () => {
+  try {
+    const val = localStorage.getItem(RESULTS_RELEASED_KEY);
+    return val === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const setGlobalResultsReleased = (isReleased) => {
+  try {
+    localStorage.setItem(RESULTS_RELEASED_KEY, isReleased ? 'true' : 'false');
+    // Also update all candidates
+    const candidates = getCandidates();
+    const updated = candidates.map(c => ({
+      ...c,
+      resultsReleased: isReleased,
+      examResult: c.examResult ? { ...c.examResult, resultsReleased: isReleased } : null
+    }));
+    saveCandidates(updated);
+    return true;
+  } catch (err) {
+    console.error('Failed to set results release status', err);
+    return false;
+  }
+};
+
+export const toggleCandidateResultsReleased = (candidateId) => {
+  const candidates = getCandidates();
+  const cand = candidates.find(c => c.id === candidateId);
+  if (cand) {
+    const newStatus = !cand.resultsReleased;
+    cand.resultsReleased = newStatus;
+    if (cand.examResult) {
+      cand.examResult.resultsReleased = newStatus;
+    }
+    saveCandidates(candidates);
+    updateCandidate(candidateId, { resultsReleased: newStatus, examResult: cand.examResult });
+    return newStatus;
+  }
+  return false;
+};
 
 // ============================================================================
 // SUPABASE REAL-TIME BACKGROUND SYNC
@@ -482,6 +527,8 @@ export const addCandidate = (candidateData) => {
     id: candidateData.id || `cand-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
     username: candidateData.username?.trim() || generateCandidateRegNo(examType),
     password: candidateData.password?.trim() || generateCandidatePasscode(),
+    email: candidateData.email?.trim() || '',
+    resultsReleased: candidateData.resultsReleased ?? getGlobalResultsReleased(),
     registeredSubjects: candidateData.registeredSubjects && candidateData.registeredSubjects.length > 0
       ? candidateData.registeredSubjects
       : ['english', 'mathematics', 'physics', 'chemistry'],
@@ -575,6 +622,8 @@ export const bulkAddCandidates = (newCandidates) => {
       id: c.id || `cand-${Date.now()}-${added++}-${Math.random().toString(36).substr(2, 5)}`,
       username: c.username?.trim() || generateCandidateRegNo(examType),
       password: c.password?.trim() || generateCandidatePasscode(),
+      email: c.email?.trim() || '',
+      resultsReleased: c.resultsReleased ?? getGlobalResultsReleased(),
       registeredSubjects: c.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
       status: c.status || 'Pending',
       examResult: null,
@@ -592,14 +641,23 @@ export const recordCandidateSubmission = (candidateId, resultData) => {
   const candidates = getCandidates();
   const candidate = candidates.find(c => c.id === candidateId || c.username === candidateId);
   if (candidate) {
+    const isReleased = candidate.resultsReleased ?? getGlobalResultsReleased();
+    const finalResultData = {
+      ...resultData,
+      email: candidate.email || '',
+      resultsReleased: isReleased
+    };
+
     candidate.status = 'Completed';
-    candidate.examResult = resultData;
+    candidate.examResult = finalResultData;
+    candidate.resultsReleased = isReleased;
     saveCandidates(candidates);
 
     // Sync to Supabase in real-time
-    updateCandidateRecord(candidate.id, { status: 'Completed', examResult: resultData }).catch(e =>
-      console.warn('Supabase candidate submission update error', e)
-    );
+    updateCandidateRecord(candidate.id, { 
+      status: 'Completed', 
+      examResult: finalResultData 
+    }).catch(e => console.warn('Supabase candidate submission update error', e));
 
     return candidate;
   }

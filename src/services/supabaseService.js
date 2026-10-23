@@ -72,6 +72,8 @@ export const fetchCandidates = async () => {
         category: row.category,
         username: row.username,
         password: row.password,
+        email: row.email || row.exam_result?.email || '',
+        resultsReleased: row.results_released ?? row.exam_result?.resultsReleased ?? false,
         registeredSubjects: row.registered_subjects || [],
         center: row.center,
         seatNumber: row.seat_number,
@@ -90,6 +92,9 @@ export const fetchCandidates = async () => {
  */
 export const createCandidate = async (candidate) => {
   try {
+    const candidateEmail = candidate.email || candidate.examResult?.email || '';
+    const isReleased = candidate.resultsReleased ?? candidate.examResult?.resultsReleased ?? false;
+
     const row = {
       id: candidate.id,
       full_name: candidate.fullName,
@@ -102,7 +107,14 @@ export const createCandidate = async (candidate) => {
       seat_number: candidate.seatNumber || 'Seat 01',
       scheduled_exam_id: candidate.scheduledExamId || null,
       status: candidate.status || 'Pending',
-      exam_result: candidate.examResult || null
+      exam_result: candidate.examResult ? {
+        ...candidate.examResult,
+        email: candidateEmail,
+        resultsReleased: isReleased
+      } : {
+        email: candidateEmail,
+        resultsReleased: isReleased
+      }
     };
 
     const { data, error } = await supabase

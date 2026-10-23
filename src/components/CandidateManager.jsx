@@ -3,17 +3,21 @@ import {
   Users, UserPlus, FileSpreadsheet, Download, RefreshCw, 
   Search, Trash2, Printer, Eye, CheckCircle2, Clock, 
   AlertTriangle, Key, Sparkles, BookOpen, ChevronRight, X, ArrowUpDown, Play,
-  KeyRound, Check, ShieldAlert, Copy, Database, Cloud
+  KeyRound, Check, ShieldAlert, Copy, Database, Cloud, Mail, Send, Lock, Unlock
 } from 'lucide-react';
 import { SUBJECTS } from '../data/questions';
 import { 
   getCandidates, addCandidate, updateCandidate, 
   deleteCandidate, resetCandidateExam, bulkAddCandidates, 
   generateCandidateRegNo, generateCandidatePasscode, getScheduledExams,
-  syncFromSupabase
+  syncFromSupabase, getGlobalResultsReleased, setGlobalResultsReleased,
+  toggleCandidateResultsReleased
 } from '../utils/storage';
 import { checkSupabaseStatus, pushAllCandidatesToSupabase } from '../services/supabaseService';
 import CandidateExamSlipModal from './CandidateExamSlipModal';
+import DeleteCandidateModal from './DeleteCandidateModal';
+import SendResultEmailModal from './SendResultEmailModal';
+import StudentResultReviewModal from './StudentResultReviewModal';
 import MathText from './MathText';
 
 const PRESET_COMBINATIONS = [
@@ -79,6 +83,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
 
   // Single Registration Form State
   const [regFullName, setRegFullName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regExamType, setRegExamType] = useState('JAMB UTME');
   const [regCategory, setRegCategory] = useState('Science');
   const [regUsername, setRegUsername] = useState(generateCandidateRegNo('JAMB UTME'));
@@ -88,6 +93,11 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const [regCenter, setRegCenter] = useState('PrepCBT Center 01 (Main Auditorium)');
   const [regSeatNumber, setRegSeatNumber] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Deletion, Email & Release Modal States
+  const [candidateToDelete, setCandidateToDelete] = useState(null);
+  const [candidateToSendEmail, setCandidateToSendEmail] = useState(null);
+  const [isGlobalReleased, setIsGlobalReleased] = useState(() => getGlobalResultsReleased());
 
   // Bulk Generator State
   const [bulkCount, setBulkCount] = useState(10);
@@ -197,6 +207,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
 
     const newCandidate = addCandidate({
       fullName: regFullName.trim(),
+      email: regEmail.trim(),
       examType: regExamType,
       category: regCategory,
       username: regUsername.trim(),
@@ -216,6 +227,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
 
     // Reset Form for next candidate
     setRegFullName('');
+    setRegEmail('');
     setRegUsername(generateCandidateRegNo(regExamType));
     setRegPassword(generateCandidatePasscode());
     setRegSeatNumber('');
@@ -346,11 +358,9 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   };
 
   const handleReset = (id) => {
-    if (window.confirm('Are you sure you want to authorize a re-sit for this candidate? Their previous score will be cleared.')) {
-      resetCandidateExam(id);
-      loadData();
-      showToast('Candidate exam reset! Candidate can now log in and take the exam again.');
-    }
+    resetCandidateExam(id);
+    loadData();
+    showToast('Candidate exam reset! Candidate can now log in and take the exam again.');
   };
 
   const handleOpenResetPassword = (cand) => {
@@ -378,12 +388,32 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
     setResetPasswordCandidate(null);
   };
 
-  const handleDelete = (id, name) => {
-    if (window.confirm(`Delete candidate ${name}? This action cannot be undone.`)) {
-      deleteCandidate(id);
-      loadData();
-      showToast(`Removed candidate ${name}.`);
-    }
+  const handleDelete = (cand) => {
+    setCandidateToDelete(cand);
+  };
+
+  const handleConfirmDelete = (id) => {
+    deleteCandidate(id);
+    loadData();
+    showToast(`Removed candidate registration from system.`);
+    setCandidateToDelete(null);
+  };
+
+  const handleToggleGlobalRelease = () => {
+    const nextVal = !isGlobalReleased;
+    setGlobalResultsReleased(nextVal);
+    setIsGlobalReleased(nextVal);
+    loadData();
+    showToast(nextVal 
+      ? '✅ Official CBT Results APPROVED & RELEASED to students!' 
+      : '🔒 Official CBT Results WITHHELD from students (Anti-Malpractice mode).'
+    );
+  };
+
+  const handleToggleCandidateRelease = (candId) => {
+    const nextStatus = toggleCandidateResultsReleased(candId);
+    loadData();
+    showToast(nextStatus ? 'Result released for this candidate.' : 'Result withheld for this candidate.');
   };
 
   // Filter and search
@@ -588,6 +618,49 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
       {/* TAB 1: CANDIDATE ROSTER & GRADEBOOK */}
       {activeTab === 'roster' && (
         <div className="space-y-4">
+          {/* Master Anti-Malpractice & Results Approval Bar */}
+          <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                isGlobalReleased 
+                  ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' 
+                  : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+              }`}>
+                {isGlobalReleased ? <Unlock size={20} /> : <Lock size={20} />}
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-extrabold text-white text-sm">Official CBT Score Release Control</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                    isGlobalReleased 
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  }`}>
+                    {isGlobalReleased ? 'ALL RESULTS APPROVED & RELEASED' : 'SCORES WITHHELD (AUDIT IN PROGRESS)'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isGlobalReleased 
+                    ? 'Students can log in to view scores and full question breakdowns, and emails can be dispatched.'
+                    : 'Scores and answers are withheld at candidate terminals until approved by the administrator.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleGlobalRelease}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shrink-0 ${
+                isGlobalReleased
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+              }`}
+            >
+              {isGlobalReleased ? <Lock size={14} /> : <Unlock size={14} />}
+              <span>{isGlobalReleased ? 'Revoke / Withhold All Scores' : 'Approve & Release All Results'}</span>
+            </button>
+          </div>
+
           {/* Filters Bar */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60">
             {/* Search */}
@@ -686,6 +759,12 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                                   <span>•</span>
                                   <span>{cand.seatNumber}</span>
                                 </div>
+                                {cand.email && (
+                                  <div className="text-[10px] text-sky-400 font-mono mt-0.5 flex items-center gap-1">
+                                    <Mail size={10} />
+                                    <span>{cand.email}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -724,10 +803,25 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                           {/* Status Badge */}
                           <td className="py-3.5 px-3 text-center">
                             {isCompleted ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                <CheckCircle2 size={12} />
-                                <span>Completed</span>
-                              </span>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  <CheckCircle2 size={12} />
+                                  <span>Completed</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleCandidateRelease(cand.id)}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold transition ${
+                                    cand.resultsReleased || isGlobalReleased
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  }`}
+                                  title="Toggle release status for this student"
+                                >
+                                  {cand.resultsReleased || isGlobalReleased ? <Unlock size={9} /> : <Lock size={9} />}
+                                  <span>{cand.resultsReleased || isGlobalReleased ? 'Released' : 'Withheld'}</span>
+                                </button>
+                              </div>
                             ) : isInProgress ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 animate-pulse">
                                 <Clock size={12} />
@@ -760,6 +854,17 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                           {/* Action Buttons */}
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Send Result Email if completed */}
+                              {isCompleted && (
+                                <button
+                                  onClick={() => setCandidateToSendEmail(cand)}
+                                  className="p-1.5 text-sky-400 hover:text-sky-200 hover:bg-sky-500/20 rounded-lg transition"
+                                  title="Send Official Scores & Question Breakdown to Candidate Email"
+                                >
+                                  <Mail size={15} />
+                                </button>
+                              )}
+
                               {/* View Result Breakdown if completed */}
                               {isCompleted && cand.examResult && (
                                 <button
@@ -813,7 +918,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
 
                               {/* Delete Candidate */}
                               <button
-                                onClick={() => handleDelete(cand.id, cand.fullName)}
+                                onClick={() => handleDelete(cand)}
                                 className="p-1.5 text-rose-400 hover:text-rose-200 hover:bg-rose-500/20 rounded-lg transition"
                                 title="Delete Candidate"
                               >
@@ -877,6 +982,24 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                 placeholder="e.g. Chukwuma Emmanuel Obi"
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-sky-500"
               />
+            </div>
+
+            {/* Candidate Email Address (for score & breakdown delivery) */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center justify-between">
+                <span>Candidate Email Address</span>
+                <span className="text-[11px] text-sky-400 font-normal">Official score report target</span>
+              </label>
+              <input
+                type="email"
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                placeholder="e.g. candidate@example.com"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-sky-500"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Scores and full question breakdowns will be delivered to this email address upon administrative release.
+              </p>
             </div>
 
             {/* Exam Type & Category */}
@@ -1519,6 +1642,36 @@ Emmanuel Okafor,JAMB UTME,english;mathematics;economics;commerce,JAMB/2026/803,P
 
           </div>
         </div>
+      )}
+
+      {/* In-UI Candidate Deletion Confirmation Modal */}
+      {candidateToDelete && (
+        <DeleteCandidateModal
+          candidate={candidateToDelete}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setCandidateToDelete(null)}
+        />
+      )}
+
+      {/* Official Score & Breakdown Dispatch Modal */}
+      {candidateToSendEmail && (
+        <SendResultEmailModal
+          candidate={candidateToSendEmail}
+          onClose={() => setCandidateToSendEmail(null)}
+          onSentSuccess={(candId, email) => {
+            updateCandidate(candId, { email, resultsReleased: true });
+            loadData();
+            showToast(`Result email dispatched to ${email}!`);
+          }}
+        />
+      )}
+
+      {/* Detailed Result Review Modal (Admin inspects test and missed questions) */}
+      {viewingResultCandidate && (
+        <StudentResultReviewModal
+          candidate={viewingResultCandidate}
+          onClose={() => setViewingResultCandidate(null)}
+        />
       )}
 
     </div>

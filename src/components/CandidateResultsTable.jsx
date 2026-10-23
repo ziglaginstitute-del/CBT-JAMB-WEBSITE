@@ -2,10 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, Download, Search, RefreshCw, Filter, 
   CheckCircle2, Clock, AlertTriangle, ArrowUpDown, Award, 
-  ChevronRight, Users, Sparkles, BookOpen 
+  ChevronRight, Users, Sparkles, BookOpen, Mail, Send, Lock, Unlock, Eye 
 } from 'lucide-react';
-import { getCandidates, resetCandidateExam, syncFromSupabase } from '../utils/storage';
+import { 
+  getCandidates, resetCandidateExam, syncFromSupabase,
+  getGlobalResultsReleased, setGlobalResultsReleased,
+  toggleCandidateResultsReleased, updateCandidate 
+} from '../utils/storage';
 import { SUBJECTS } from '../data/questions';
+import SendResultEmailModal from './SendResultEmailModal';
+import StudentResultReviewModal from './StudentResultReviewModal';
 
 export default function CandidateResultsTable() {
   const [candidates, setCandidates] = useState([]);
@@ -14,6 +20,15 @@ export default function CandidateResultsTable() {
   const [examTypeFilter, setExamTypeFilter] = useState('All');
   const [sortBy, setSortBy] = useState('score-desc');
   const [selectedCandidateDetail, setSelectedCandidateDetail] = useState(null);
+  const [candidateToSendEmail, setCandidateToSendEmail] = useState(null);
+  const [reviewCandidate, setReviewCandidate] = useState(null);
+  const [isGlobalReleased, setIsGlobalReleased] = useState(() => getGlobalResultsReleased());
+  const [toastMsg, setToastMsg] = useState(null);
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
 
   const loadData = () => {
     setCandidates(getCandidates());
@@ -31,10 +46,26 @@ export default function CandidateResultsTable() {
   };
 
   const handleReset = (candidateId, name) => {
-    if (window.confirm(`Are you sure you want to authorize a re-sit for ${name}? Their recorded exam score will be cleared.`)) {
-      resetCandidateExam(candidateId);
-      loadData();
-    }
+    resetCandidateExam(candidateId);
+    loadData();
+    showToast(`Exam score reset for ${name}. Candidate can re-sit.`);
+  };
+
+  const handleToggleGlobalRelease = () => {
+    const nextVal = !isGlobalReleased;
+    setGlobalResultsReleased(nextVal);
+    setIsGlobalReleased(nextVal);
+    loadData();
+    showToast(nextVal 
+      ? '✅ Official CBT Results APPROVED & RELEASED to students!' 
+      : '🔒 Official CBT Results WITHHELD from students (Anti-Malpractice mode).'
+    );
+  };
+
+  const handleToggleCandidateRelease = (candId) => {
+    const nextVal = toggleCandidateResultsReleased(candId);
+    loadData();
+    showToast(nextVal ? 'Result released for this candidate.' : 'Result withheld for this candidate.');
   };
 
   // Export to CSV
@@ -204,6 +235,49 @@ export default function CandidateResultsTable() {
         </div>
       </div>
 
+      {/* Master Results Release & Anti-Malpractice Control Bar */}
+      <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            isGlobalReleased 
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' 
+              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
+          }`}>
+            {isGlobalReleased ? <Unlock size={20} /> : <Lock size={20} />}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-extrabold text-white text-sm">Official CBT Score Release Control</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                isGlobalReleased 
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}>
+                {isGlobalReleased ? 'ALL RESULTS APPROVED & RELEASED' : 'SCORES WITHHELD (AUDIT IN PROGRESS)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isGlobalReleased 
+                ? 'Scores and answers are accessible to candidates via student login and official email dispatch.'
+                : 'Raw scores and answers are blocked from candidate terminals pending administrative sign-off.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleToggleGlobalRelease}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shrink-0 ${
+            isGlobalReleased
+              ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+          }`}
+        >
+          {isGlobalReleased ? <Lock size={14} /> : <Unlock size={14} />}
+          <span>{isGlobalReleased ? 'Revoke / Withhold All Scores' : 'Approve & Release All Results'}</span>
+        </button>
+      </div>
+
       {/* Filters and Controls */}
       <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="relative w-full md:w-80">
@@ -262,7 +336,7 @@ export default function CandidateResultsTable() {
               <tr className="bg-slate-900/90 border-b border-slate-700 text-slate-400 uppercase tracking-wider font-semibold">
                 <th className="py-3 px-4">Candidate</th>
                 <th className="py-3 px-4">Exam & Track</th>
-                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Status & Release</th>
                 <th className="py-3 px-4 text-center">Score / 400</th>
                 <th className="py-3 px-4 text-center">Percentage</th>
                 <th className="py-3 px-4">Time Spent</th>
@@ -288,6 +362,11 @@ export default function CandidateResultsTable() {
                       <td className="py-3 px-4">
                         <div className="font-bold text-white text-sm">{cand.fullName}</div>
                         <div className="font-mono text-[11px] text-sky-400">{cand.username}</div>
+                        {cand.email && (
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[180px]">
+                            {cand.email}
+                          </div>
+                        )}
                       </td>
 
                       {/* Exam & Track */}
@@ -296,7 +375,7 @@ export default function CandidateResultsTable() {
                         <div className="text-[10px] text-slate-400">{cand.category || 'General'}</div>
                       </td>
 
-                      {/* Status */}
+                      {/* Status & Release Badge */}
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                           cand.status === 'Completed'
@@ -309,6 +388,21 @@ export default function CandidateResultsTable() {
                           {cand.status === 'In Progress' && <Clock size={10} />}
                           <span>{cand.status || 'Pending'}</span>
                         </span>
+                        {isCompleted && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCandidateRelease(cand.id)}
+                            className={`mt-1 flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold transition ${
+                              cand.resultsReleased || isGlobalReleased
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}
+                            title="Toggle release status for this candidate"
+                          >
+                            {cand.resultsReleased || isGlobalReleased ? <Unlock size={9} /> : <Lock size={9} />}
+                            <span>{cand.resultsReleased || isGlobalReleased ? 'Released' : 'Withheld'}</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Score */}
@@ -354,13 +448,25 @@ export default function CandidateResultsTable() {
                       {/* Actions */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Send Result Email if completed */}
                           {isCompleted && (
                             <button
-                              onClick={() => setSelectedCandidateDetail(cand)}
-                              className="px-2 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[11px] font-semibold transition"
-                              title="View Subject Breakdown"
+                              onClick={() => setCandidateToSendEmail(cand)}
+                              className="p-1.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[11px] font-semibold transition"
+                              title="Send Official Scores & Question Breakdown to Candidate Email"
                             >
-                              Breakdown
+                              <Mail size={13} />
+                            </button>
+                          )}
+                          {/* View Full Breakdown & Missed Questions */}
+                          {isCompleted && (
+                            <button
+                              onClick={() => setReviewCandidate(cand)}
+                              className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold transition flex items-center gap-1"
+                              title="View Full Breakdown & Question-by-Question Review"
+                            >
+                              <Eye size={12} />
+                              <span>Review</span>
                             </button>
                           )}
                           <button
@@ -381,53 +487,33 @@ export default function CandidateResultsTable() {
         </div>
       </div>
 
-      {/* Subject Breakdown Detail Modal */}
-      {selectedCandidateDetail && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="font-bold text-white text-base">{selectedCandidateDetail.fullName}</h3>
-                <p className="text-xs text-sky-400 font-mono">{selectedCandidateDetail.username}</p>
-              </div>
-              <button
-                onClick={() => setSelectedCandidateDetail(null)}
-                className="text-slate-400 hover:text-white text-sm px-2 py-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs text-slate-300 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
-                <span>Total Score: <strong className="text-emerald-400 font-mono text-sm">{selectedCandidateDetail.examResult?.totalScore}</strong> / {selectedCandidateDetail.examResult?.maxScore || 400}</span>
-                <span>Percentage: <strong className="text-purple-400 font-mono">{selectedCandidateDetail.examResult?.percentage}%</strong></span>
-              </div>
-
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Subject-by-Subject Breakdown</h4>
-              <div className="space-y-2">
-                {selectedCandidateDetail.examResult?.subjectScores && Object.entries(selectedCandidateDetail.examResult.subjectScores).map(([subId, sc]) => (
-                  <div key={subId} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-800/40 border border-slate-700 text-xs">
-                    <span className="font-semibold text-white capitalize">{getSubjectName(subId)}</span>
-                    <div className="flex items-center gap-3 font-mono">
-                      <span className="text-slate-400">{sc.correct} / {sc.total} correct</span>
-                      <span className="text-emerald-400 font-bold">{sc.score}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSelectedCandidateDetail(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-sky-600 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in duration-200">
+          <Sparkles size={16} />
+          <span>{toastMsg}</span>
         </div>
+      )}
+
+      {/* Official Score & Breakdown Dispatch Modal */}
+      {candidateToSendEmail && (
+        <SendResultEmailModal
+          candidate={candidateToSendEmail}
+          onClose={() => setCandidateToSendEmail(null)}
+          onSentSuccess={(candId, email) => {
+            updateCandidate(candId, { email, resultsReleased: true });
+            loadData();
+            showToast(`Result email dispatched to ${email}!`);
+          }}
+        />
+      )}
+
+      {/* Detailed Result Review Modal (All Questions, Missed Items & Explanations) */}
+      {reviewCandidate && (
+        <StudentResultReviewModal
+          candidate={reviewCandidate}
+          onClose={() => setReviewCandidate(null)}
+        />
       )}
 
     </div>

@@ -34,18 +34,47 @@ export default function ExamInterface({ examConfig, onFinishExam, onExitExam }) 
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showHotkeysHelp, setShowHotkeysHelp] = useState(false);
 
-  // Compile list of questions for each subject in this exam
+  // Compile list of questions for each subject in this exam with anti-malpractice shuffling
   const examQuestionsBySubject = useMemo(() => {
+    let baseMap = {};
     if (examConfig.questionsBySubject && Object.keys(examConfig.questionsBySubject).length > 0) {
-      return examConfig.questionsBySubject;
+      baseMap = examConfig.questionsBySubject;
+    } else {
+      const bank = getQuestionBank();
+      subjects.forEach(subId => {
+        baseMap[subId] = bank[subId] || [];
+      });
     }
-    const bank = getQuestionBank();
-    const map = {};
+
+    // Anti-malpractice deterministic shuffle:
+    // Every student receives the exact same questions from the question bank,
+    // but shuffled uniquely per candidate session so adjacent seats don't match!
+    const seed = examConfig.candidateReg || examConfig.candidateId || 'seed-default';
+    let sVal = 0;
+    for (let i = 0; i < seed.length; i++) {
+      sVal = (sVal * 31 + seed.charCodeAt(i)) % 2147483647;
+    }
+
+    const shuffledMap = {};
     subjects.forEach(subId => {
-      map[subId] = bank[subId] || [];
+      const rawList = [...(baseMap[subId] || [])];
+      let localSeed = (sVal + subId.length * 17) % 2147483647;
+      const getRng = () => {
+        localSeed = (localSeed * 16807) % 2147483647;
+        return (localSeed - 1) / 2147483646;
+      };
+
+      // Fisher-Yates deterministic shuffle
+      for (let i = rawList.length - 1; i > 0; i--) {
+        const j = Math.floor(getRng() * (i + 1));
+        [rawList[i], rawList[j]] = [rawList[j], rawList[i]];
+      }
+
+      shuffledMap[subId] = rawList;
     });
-    return map;
-  }, [subjects, examConfig.questionsBySubject]);
+
+    return shuffledMap;
+  }, [subjects, examConfig.questionsBySubject, examConfig.candidateReg, examConfig.candidateId]);
 
   const currentSubjectQuestions = examQuestionsBySubject[activeSubject] || [];
   const currentQIndex = subjectQuestionIndices[activeSubject] || 0;

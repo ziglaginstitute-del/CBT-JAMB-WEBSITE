@@ -12,6 +12,7 @@ import PracticeMode from './components/PracticeMode';
 import PastHistory from './components/PastHistory';
 import ExamSetupModal from './components/ExamSetupModal';
 import InstructionsModal from './components/InstructionsModal';
+import ExamSubmissionSuccess from './components/ExamSubmissionSuccess';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
   updateCandidate, getScheduledExams, syncFromSupabase 
@@ -196,7 +197,9 @@ export default function App() {
         percentage,
         timeSpentSeconds,
         submittedAt: new Date().toISOString(),
-        subjectScores
+        subjectScores,
+        answers,
+        examQuestionsBySubject
       });
     }
 
@@ -215,7 +218,10 @@ export default function App() {
     saveToHistory(historyRecord);
     createExamHistoryRecord(historyRecord).catch(e => console.warn('Supabase history write error:', e));
     setExamResult(completedData);
-    setCurrentView('result');
+
+    // Official Anti-Malpractice Protocol: No immediate scores shown to candidates!
+    // Scores are withheld pending central administrative compilation and released to registered email.
+    setCurrentView('submission-confirmed');
   };
 
   const handleReviewPastAttempt = () => {
@@ -244,6 +250,7 @@ export default function App() {
       candidateName: candidate.fullName,
       candidateReg: candidate.username,
       candidateId: candidate.id,
+      candidateEmail: candidate.email || '',
       isCandidateSession: true,
       subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
       durationMinutes: assignedExam ? assignedExam.durationMinutes : (candidate.examType === 'WASSCE' ? 150 : 120),
@@ -323,6 +330,15 @@ export default function App() {
             examConfig={activeExamConfig}
             onFinishExam={handleFinishExam}
             onExitExam={() => setCurrentView('login')}
+          />
+        )}
+
+        {/* Official Withheld Exam Submission Receipt (Anti-Malpractice Protocol) */}
+        {currentView === 'submission-confirmed' && activeExamConfig && (
+          <ExamSubmissionSuccess
+            examConfig={activeExamConfig}
+            candidateEmail={activeExamConfig.candidateEmail}
+            onExitToLogin={() => setCurrentView('login')}
           />
         )}
 

@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { 
   Key, Lock, User, ShieldCheck, 
   CheckCircle2, ArrowRight, Eye, EyeOff, 
-  AlertCircle
+  AlertCircle, Mail, Clock, Award
 } from 'lucide-react';
 import { 
   findCandidateByCredentials, 
   getScheduledExams,
-  syncFromSupabase
+  syncFromSupabase,
+  getGlobalResultsReleased
 } from '../utils/storage';
 import CandidateExamSlipModal from '../components/CandidateExamSlipModal';
+import StudentResultReviewModal from '../components/StudentResultReviewModal';
 
 export default function HomeDashboard({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -22,6 +24,10 @@ export default function HomeDashboard({ onLoginSuccess }) {
   const [verifiedCandidate, setVerifiedCandidate] = useState(null);
   const [assignedExam, setAssignedExam] = useState(null);
   const [timeWindowStatus, setTimeWindowStatus] = useState({ valid: true, message: '' });
+
+  // Post-Exam Result access states
+  const [reviewCandidate, setReviewCandidate] = useState(null);
+  const [withheldNoticeCandidate, setWithheldNoticeCandidate] = useState(null);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +55,17 @@ export default function HomeDashboard({ onLoginSuccess }) {
     if (!candidate) {
       setErrorMessage('Invalid Registration Number or Passcode. Please check your docket credentials or report to the center invigilator.');
       setVerifiedCandidate(null);
+      return;
+    }
+
+    // Check if candidate already completed their CBT examination
+    if (candidate.status === 'Completed') {
+      const isReleased = candidate.resultsReleased || getGlobalResultsReleased();
+      if (isReleased) {
+        setReviewCandidate(candidate);
+      } else {
+        setWithheldNoticeCandidate(candidate);
+      }
       return;
     }
 
@@ -286,6 +303,77 @@ export default function HomeDashboard({ onLoginSuccess }) {
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition"
               >
                 Understood, Return to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Post-Exam Approved Result & Detailed Breakdown Review Modal */}
+      {reviewCandidate && (
+        <StudentResultReviewModal
+          candidate={reviewCandidate}
+          onClose={() => setReviewCandidate(null)}
+        />
+      )}
+
+      {/* Official Score Withheld / Results Under Audit Notice Modal */}
+      {withheldNoticeCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/30 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                <Lock size={24} className="stroke-[2.2]" />
+              </div>
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                  Examination Recorded • Scores Withheld
+                </span>
+                <h3 className="text-lg font-black text-white mt-1">Official Result Under Administrative Audit</h3>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Candidate Name:</span>
+                <strong className="text-white font-bold">{withheldNoticeCandidate.fullName}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Registration Number:</span>
+                <strong className="text-sky-400 font-mono font-bold">{withheldNoticeCandidate.username}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Examination Track:</span>
+                <span className="text-slate-300 uppercase font-semibold">{withheldNoticeCandidate.examType || 'JAMB UTME'}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-800/80">
+                <span className="text-slate-400">Target Delivery Email:</span>
+                <span className="text-sky-300 font-mono text-[11px] font-medium">
+                  {withheldNoticeCandidate.email || 'No email registered on docket'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/80 text-xs text-slate-300 space-y-2 leading-relaxed">
+              <p>
+                Your CBT examination answers have been securely submitted and logged. Under center anti-malpractice regulations, immediate scores are locked at the candidate terminal.
+              </p>
+              <p className="text-slate-400">
+                The center administration is compiling the official results sheet. As soon as the scores are approved by the examination board:
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-slate-300 text-[11px]">
+                <li>Your full scores and detailed question breakdown will be sent directly to your registered email.</li>
+                <li>You will be able to log back into this terminal to review your score, subject performance, and missed questions with explanations.</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setWithheldNoticeCandidate(null)}
+                className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30"
+              >
+                Understood, Return to Portal
               </button>
             </div>
           </div>
