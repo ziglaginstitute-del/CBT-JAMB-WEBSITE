@@ -21,6 +21,209 @@ const SCHEDULED_EXAMS_KEY = 'prepcbt_scheduled_exams';
 const CANDIDATES_KEY = 'prepcbt_registered_candidates';
 const RESULTS_RELEASED_KEY = 'prepcbt_results_released';
 
+// ============================================================================
+// ELECTRON OFFLINE DATABASE PERSISTENCE & HARDWARE BRIDGE
+// ============================================================================
+
+export const isElectronApp = () => {
+  return typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron);
+};
+
+let electronSyncDebounce = null;
+export const syncToElectronDisk = () => {
+  if (!isElectronApp()) return;
+  if (electronSyncDebounce) clearTimeout(electronSyncDebounce);
+
+  electronSyncDebounce = setTimeout(async () => {
+    try {
+      const dump = {
+        questionBank: getQuestionBank(),
+        candidates: getCandidates(),
+        scheduledExams: getScheduledExams(),
+        resultsReleased: getGlobalResultsReleased(),
+        lastSaved: new Date().toISOString()
+      };
+      await window.electronAPI.saveData(dump);
+    } catch (err) {
+      console.warn('[PrepCBT Storage] Electron disk persistence notice:', err);
+    }
+  }, 350);
+};
+
+export const initElectronStorage = async () => {
+  if (!isElectronApp()) return false;
+  try {
+    const offlineDb = await window.electronAPI.loadData();
+    if (offlineDb) {
+      if (offlineDb.questionBank && Object.keys(offlineDb.questionBank).length > 0) {
+        localStorage.setItem(QUESTION_BANK_KEY, JSON.stringify(offlineDb.questionBank));
+      }
+      if (Array.isArray(offlineDb.candidates) && offlineDb.candidates.length > 0) {
+        localStorage.setItem(CANDIDATES_KEY, JSON.stringify(offlineDb.candidates));
+      }
+      if (Array.isArray(offlineDb.scheduledExams) && offlineDb.scheduledExams.length > 0) {
+        localStorage.setItem(SCHEDULED_EXAMS_KEY, JSON.stringify(offlineDb.scheduledExams));
+      }
+      if (typeof offlineDb.resultsReleased === 'boolean') {
+        localStorage.setItem(RESULTS_RELEASED_KEY, offlineDb.resultsReleased ? 'true' : 'false');
+      }
+      return true;
+    } else {
+      // First boot on Windows offline machine: write initial seed state to local JSON
+      syncToElectronDisk();
+      return true;
+    }
+  } catch (err) {
+    console.warn('[PrepCBT Storage] Failed to initialize Electron offline storage:', err);
+    return false;
+  }
+};
+
+/**
+ * Export Question Bank to USB Flash Drive or Local Disk (.json)
+ */
+export const exportQuestionBankUSB = async () => {
+  const bank = getQuestionBank();
+  const count = Object.values(bank).reduce((acc, list) => acc + (list?.length || 0), 0);
+
+  const packageData = {
+    app: 'PrepCBT Examination System',
+    format: 'PREPCBT_QUESTION_BANK_PACKAGE',
+    version: '2026.1',
+    exportedAt: new Date().toISOString(),
+    totalQuestions: count,
+    questionBank: bank
+  };
+
+  if (isElectronApp()) {
+    return await window.electronAPI.exportDataToUSB(packageData);
+  } else {
+    // Browser fallback: download file through browser blob URL
+    try {
+      const jsonStr = JSON.stringify(packageData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const filename = `PrepCBT_Question_Bank_${new Date().toISOString().slice(0, 10)}.json`;
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return { success: true, filePath: filename };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+};
+
+/**
+ * Import Questions from USB Flash Drive (.json) and merge into local Question Bank
+ */
+export const importQuestionBankUSB = async (onFileSelect) => {
+  if (isElectronApp()) {
+    const res = await window.electronAPI.importDataFromUSB();
+    if (!res.success) return res;
+
+    const data = res.data;
+    const incomingBank = data.questionBank || (typeof data === 'object' && !data.format ? data : null);
+    if (!incomingBank) {
+      return { success: false, error: 'Unrecognized question bank file format.' };
+    }
+
+    const currentBank = getQuestionBank();
+    let mergedCount = 0;
+
+    Object.keys(incomingBank).forEach(subjectKey => {
+      if (!currentBank[subjectKey]) currentBank[subjectKey] = [];
+      const existingIds = new Set(currentBank[subjectKey].map(q => q.id));
+
+      (incomingBank[subjectKey] || []).forEach(q => {
+        if (!existingIds.has(q.id)) {
+          currentBank[subjectKey].push(q);
+          mergedCount++;
+        }
+      });
+    });
+
+    saveQuestionBank(currentBank);
+    return { success: true, count: mergedCount, filePath: res.filePath };
+  } else {
+    // Web browser fallback via HTML file input picker
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+          resolve({ success: false, canceled: true });
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            const incomingBank = data.questionBank || (typeof data === 'object' && !data.format ? data : null);
+            if (!incomingBank) {
+              resolve({ success: false, error: 'Unrecognized question bank file format.' });
+              return;
+            }
+
+            const currentBank = getQuestionBank();
+            let mergedCount = 0;
+
+            Object.keys(incomingBank).forEach(subjectKey => {
+              if (!currentBank[subjectKey]) currentBank[subjectKey] = [];
+              const existingIds = new Set(currentBank[subjectKey].map(q => q.id));
+
+              (incomingBank[subjectKey] || []).forEach(q => {
+                if (!existingIds.has(q.id)) {
+                  currentBank[subjectKey].push(q);
+                  mergedCount++;
+                }
+              });
+            });
+
+            saveQuestionBank(currentBank);
+            resolve({ success: true, count: mergedCount, filePath: file.name });
+          } catch (err) {
+            resolve({ success: false, error: 'Failed to parse JSON file: ' + err.message });
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+  }
+};
+
+/**
+ * Toggle Fullscreen / Kiosk Examination Lockdown Mode
+ */
+export const toggleExamKioskMode = async (enabled) => {
+  if (isElectronApp()) {
+    return await window.electronAPI.toggleKioskMode(enabled);
+  } else {
+    // Browser Fullscreen API fallback
+    try {
+      if (enabled) {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        }
+      } else {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      }
+      return { success: true, isKiosk: Boolean(document.fullscreenElement) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+};
+
 // Global Result Release Approval State (controlled by admin)
 export const getGlobalResultsReleased = () => {
   try {
@@ -42,6 +245,7 @@ export const setGlobalResultsReleased = (isReleased) => {
       examResult: c.examResult ? { ...c.examResult, resultsReleased: isReleased } : null
     }));
     saveCandidates(updated);
+    syncToElectronDisk();
     return true;
   } catch (err) {
     console.error('Failed to set results release status', err);
@@ -60,6 +264,7 @@ export const toggleCandidateResultsReleased = (candidateId) => {
     }
     saveCandidates(candidates);
     updateCandidate(candidateId, { resultsReleased: newStatus, examResult: cand.examResult });
+    syncToElectronDisk();
     return newStatus;
   }
   return false;
@@ -136,6 +341,7 @@ export const getQuestionBank = () => {
 export const saveQuestionBank = (bank) => {
   try {
     localStorage.setItem(QUESTION_BANK_KEY, JSON.stringify(bank));
+    syncToElectronDisk();
   } catch (err) {
     console.error('Failed to save question bank to localStorage', err);
   }
@@ -298,6 +504,7 @@ export const getScheduledExams = () => {
 export const saveScheduledExams = (exams) => {
   try {
     localStorage.setItem(SCHEDULED_EXAMS_KEY, JSON.stringify(exams));
+    syncToElectronDisk();
   } catch (err) {
     console.error('Failed to save scheduled exams', err);
   }
@@ -514,6 +721,7 @@ export const getCandidates = () => {
 export const saveCandidates = (candidates) => {
   try {
     localStorage.setItem(CANDIDATES_KEY, JSON.stringify(candidates));
+    syncToElectronDisk();
   } catch (err) {
     console.error('Failed to save candidates to localStorage', err);
   }

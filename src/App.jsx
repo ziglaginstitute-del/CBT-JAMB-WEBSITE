@@ -13,9 +13,11 @@ import PastHistory from './components/PastHistory';
 import ExamSetupModal from './components/ExamSetupModal';
 import InstructionsModal from './components/InstructionsModal';
 import ExamSubmissionSuccess from './components/ExamSubmissionSuccess';
+import AdminPortal from './views/AdminPortal';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
-  updateCandidate, getScheduledExams, syncFromSupabase 
+  updateCandidate, getScheduledExams, syncFromSupabase,
+  initElectronStorage
 } from './utils/storage';
 import { createExamHistoryRecord, fetchExamHistory } from './services/supabaseService';
 import { ADMIN_SESSION_STORAGE_KEY } from './data/defaultSettings';
@@ -67,8 +69,9 @@ export default function App() {
     }
   });
 
-  // Background sync with Supabase on app mount
+  // Background sync with Supabase and Electron Offline DB on app mount
   useEffect(() => {
+    initElectronStorage();
     syncFromSupabase();
     fetchExamHistory().then(remoteHistory => {
       if (remoteHistory && remoteHistory.length > 0) {
@@ -286,6 +289,13 @@ export default function App() {
         {/* ================= ADMIN PROTECTED VIEWS ================= */}
         {isAdminAuthenticated && (
           <>
+            {(currentView === 'admin-portal' || currentView === 'admin-dashboard') && (
+              <AdminPortal
+                onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
+                onDirectLaunchExam={handleDirectLaunchScheduledExam}
+              />
+            )}
+
             {currentView === 'candidates' && (
               <CandidateManager
                 onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}

@@ -2,12 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Filter, BookOpen, Trash2, Edit3, 
   FileUp, CheckCircle2, AlertCircle, X, Check, 
-  Sparkles, Layers, Award, ChevronDown, ChevronUp, Copy 
+  Sparkles, Layers, Award, ChevronDown, ChevronUp, Copy,
+  Usb, HardDrive, Lock, Unlock, Monitor, Download, Upload, ShieldAlert
 } from 'lucide-react';
 import { SUBJECTS, DIFFICULTIES } from '../data/questions';
 import { 
   getQuestionBank, addQuestion, updateQuestion, 
-  deleteQuestion, saveQuestionBank, syncFromSupabase 
+  deleteQuestion, saveQuestionBank, syncFromSupabase,
+  exportQuestionBankUSB, importQuestionBankUSB, toggleExamKioskMode, isElectronApp
 } from '../utils/storage';
 import PDFQuestionUploader from './PDFQuestionUploader';
 import MathText from './MathText';
@@ -22,6 +24,59 @@ export default function QuestionBankManager() {
   const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
+
+  // Desktop Offline / USB / Lockdown Examination Mode States
+  const [isKioskMode, setIsKioskMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const isElectron = isElectronApp();
+
+  const handleExportFlashDrive = async () => {
+    setIsExporting(true);
+    try {
+      const res = await exportQuestionBankUSB();
+      if (res.success) {
+        showToast(`✅ Exported Question Bank to flash drive (${res.filePath || 'saved'})!`);
+      } else if (!res.canceled) {
+        showToast(`❌ Export failed: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      showToast(`Export error: ${err.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFlashDrive = async () => {
+    setIsImporting(true);
+    try {
+      const res = await importQuestionBankUSB();
+      if (res.success) {
+        reloadBank();
+        showToast(`✅ Successfully imported & merged ${res.count} questions from flash drive!`);
+      } else if (!res.canceled) {
+        showToast(`❌ Import failed: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      showToast(`Import error: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleToggleKiosk = async () => {
+    const nextState = !isKioskMode;
+    const res = await toggleExamKioskMode(nextState);
+    if (res.success) {
+      setIsKioskMode(nextState);
+      showToast(nextState 
+        ? '🔒 Exam Center Kiosk Mode ACTIVATED! Full-screen examination locked.' 
+        : '🔓 Exam Center Kiosk Mode DEACTIVATED. Standard desktop window restored.'
+      );
+    } else {
+      showToast(`Kiosk toggle failed: ${res.error || 'Failed'}`);
+    }
+  };
 
   // Form State for Question Creator / Editor
   const [formSubject, setFormSubject] = useState('english');
@@ -214,6 +269,81 @@ export default function QuestionBankManager() {
           >
             <Plus size={16} />
             <span>Create Question</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Offline Desktop Station & Kiosk Lockdown Control Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+            isKioskMode 
+              ? 'bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-lg shadow-rose-500/20' 
+              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+          }`}>
+            {isKioskMode ? <Lock size={22} className="stroke-[2.5]" /> : <Monitor size={22} />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-white text-sm">Exam Center Kiosk Mode</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                isKioskMode 
+                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse' 
+                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}>
+                {isKioskMode ? 'LOCKED IN EXAM MODE' : 'WINDOWED DESKTOP'}
+              </span>
+              {isElectron && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                  Offline Engine Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isKioskMode 
+                ? 'Full-screen lockdown active. Students cannot minimize, access browser tabs, or use unauthorized app shortcuts.' 
+                : 'Turn ON to lock student terminals into accredited full-screen anti-cheating mode.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+          {/* USB Export Button */}
+          <button
+            type="button"
+            onClick={handleExportFlashDrive}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition disabled:opacity-50"
+            title="Save entire question repository to USB drive (.json)"
+          >
+            <Usb size={15} className="text-sky-400" />
+            <span>{isExporting ? 'Exporting...' : 'Export Question Bank to Flash Drive'}</span>
+          </button>
+
+          {/* USB Import Button */}
+          <button
+            type="button"
+            onClick={handleImportFlashDrive}
+            disabled={isImporting}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition disabled:opacity-50"
+            title="Merge external questions from USB flash drive (.json)"
+          >
+            <HardDrive size={15} className="text-amber-400" />
+            <span>{isImporting ? 'Importing...' : 'Import Questions from Flash Drive'}</span>
+          </button>
+
+          {/* Kiosk Mode Toggle Switch */}
+          <button
+            type="button"
+            onClick={handleToggleKiosk}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition shadow-md shrink-0 ${
+              isKioskMode
+                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+            }`}
+          >
+            {isKioskMode ? <Unlock size={14} /> : <Lock size={14} />}
+            <span>{isKioskMode ? 'Exit Kiosk Lockdown' : 'Enable Kiosk Mode'}</span>
           </button>
         </div>
       </div>
