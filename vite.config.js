@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './', // Crucial for Electron offline standalone app: ensures relative asset paths (./assets/...)
   plugins: [react()],
   server: {
     host: '0.0.0.0',
