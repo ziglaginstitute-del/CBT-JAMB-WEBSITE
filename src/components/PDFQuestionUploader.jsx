@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { 
   FileUp, FileText, CheckCircle2, AlertTriangle, Trash2, 
-  Sparkles, RefreshCw, Edit3, ArrowRight, Check, X, Layers, Filter 
+  Sparkles, RefreshCw, Edit3, ArrowRight, Check, X, Layers, Filter, Eye
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { SUBJECTS } from '../data/questions';
-import { bulkAddQuestions } from '../utils/storage';
+import { getAllSubjects, bulkAddQuestions } from '../utils/storage';
+import { autoFormatLatexString, autoFormatQuestionToLatex } from '../utils/latexHelper';
+import LatexEditorToolbar from './LatexEditorToolbar';
 import MathText from './MathText';
 
 // Configure PDF.js worker
@@ -61,12 +62,22 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
   const [isLoading, setIsLoading] = useState(false);
   const [rawText, setRawText] = useState('');
   const [targetSubject, setTargetSubject] = useState('english');
+  const [targetTopic, setTargetTopic] = useState('');
   const [defaultDifficulty, setDefaultDifficulty] = useState('Intermediate');
   const [parsedQuestions, setParsedQuestions] = useState([]);
   const [selectedQuestions, setSelectedQuestions] = useState({});
   const [editingIndex, setEditingIndex] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const allSubjects = getAllSubjects();
+
+  const handleAutoFormatAllLatex = () => {
+    if (parsedQuestions.length === 0) return;
+    const formatted = parsedQuestions.map(q => autoFormatQuestionToLatex(q));
+    setParsedQuestions(formatted);
+    setSuccessMsg(`✨ Formatted all ${formatted.length} questions into standard KaTeX mathematical formulas!`);
+  };
 
   // Extract text from PDF using PDF.js preserving linebreaks and layout
   const handlePdfUpload = async (e) => {
@@ -141,6 +152,7 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
             id: `temp-${idx}`,
             subject: item.subject || targetSubject,
             difficulty: item.difficulty || defaultDifficulty,
+            topic: item.topic || targetTopic.trim() || '',
             question: item.question || '',
             passage: item.passage || '',
             options: item.options || [
@@ -236,6 +248,10 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
         currentPassage = passageMatch[1].trim();
       }
 
+      // Extract Topic / Unit
+      const topicMatch = chunk.match(/(?:Topic|Unit|Chapter|Section)[:\s]+([^\n\r]+)/i);
+      const topic = topicMatch ? topicMatch[1].trim() : (targetTopic.trim() || '');
+
       // Extract Answer Key
       const ansMatch = chunk.match(/(?:Ans(?:wer)?|Key|Correct)[:\s\-=]+([A-D])\b/i);
       let correctOption = 'A';
@@ -257,6 +273,7 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
       let body = chunk
         .replace(/(?:Ans(?:wer)?|Key|Correct)[:\s\-=]+[A-D]\b[^\n]*/gi, '')
         .replace(/(?:Hint)[:\s]+[^\n]*/gi, '')
+        .replace(/(?:Topic|Unit|Chapter|Section)[:\s]+[^\n]*/gi, '')
         .replace(/(?:Explanation|Solution)[:\s]+[\s\S]*/gi, '')
         .trim();
 
@@ -307,6 +324,7 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
           id: `imp-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
           subject: targetSubject,
           difficulty: defaultDifficulty,
+          topic: topic,
           passage: currentPassage,
           question: questionStem.replace(/\s+/g, ' '),
           options,
@@ -425,7 +443,7 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
         </div>
 
         {/* Global Settings & Batch Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 pb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 pb-5">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -446,7 +464,7 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
               onChange={(e) => setTargetSubject(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 font-medium"
             >
-              {SUBJECTS.map(s => (
+              {allSubjects.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
@@ -476,6 +494,19 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
               <option value="Intermediate">Intermediate</option>
               <option value="Advanced">Advanced</option>
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+              Batch Topic Tag (Optional)
+            </label>
+            <input
+              type="text"
+              value={targetTopic}
+              onChange={(e) => setTargetTopic(e.target.value)}
+              placeholder="e.g. Algebra, Kinetics, Macroeconomics"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 font-medium placeholder-slate-500"
+            />
           </div>
         </div>
 
@@ -613,6 +644,16 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
               </button>
 
               <button
+                type="button"
+                onClick={handleAutoFormatAllLatex}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition shadow-sm"
+                title="Automatically convert math notation (x^2, sqrt, fractions, theta) into KaTeX formulas across all questions"
+              >
+                <Sparkles size={14} />
+                <span>Auto-Format Math to LaTeX</span>
+              </button>
+
+              <button
                 onClick={handleCommitImport}
                 disabled={selectedCount === 0}
                 className="ml-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
@@ -696,15 +737,47 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
                   <div className="pt-3 space-y-3">
                     {isEditing ? (
                       <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[11px] font-bold uppercase text-slate-400">Subject</label>
+                            <select
+                              value={q.subject}
+                              onChange={(e) => handleUpdateQuestion(idx, 'subject', e.target.value)}
+                              className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                            >
+                              {allSubjects.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-bold uppercase text-slate-400">Topic / Curriculum Area</label>
+                            <input
+                              type="text"
+                              value={q.topic || ''}
+                              onChange={(e) => handleUpdateQuestion(idx, 'topic', e.target.value)}
+                              placeholder="e.g. Differentiation, Redox Reactions"
+                              className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder-slate-500"
+                            />
+                          </div>
+                        </div>
+
                         <div>
-                          <label className="text-[11px] font-bold uppercase text-slate-400">Question Text</label>
+                          <label className="text-[11px] font-bold uppercase text-slate-400">Question Text (Supports KaTeX LaTeX $...$)</label>
                           <textarea
-                            rows={2}
+                            rows={3}
                             value={q.question}
                             onChange={(e) => handleUpdateQuestion(idx, 'question', e.target.value)}
-                            className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white"
+                            className="w-full mt-1 bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white font-mono"
                           />
                         </div>
+
+                        {/* LaTeX Formula Toolbar & Live KaTeX Math Preview */}
+                        <LatexEditorToolbar
+                          previewText={q.question}
+                          onAutoFormat={() => handleUpdateQuestion(idx, 'question', autoFormatLatexString(q.question))}
+                          onInsertLatex={(snip) => handleUpdateQuestion(idx, 'question', (q.question || '') + ' $' + snip + '$')}
+                        />
 
                         {/* Options */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -813,6 +886,16 @@ export default function PDFQuestionUploader({ onImportComplete, onCancel }) {
               >
                 Cancel
               </button>
+              <button
+                type="button"
+                onClick={handleAutoFormatAllLatex}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition shadow-sm"
+                title="Automatically convert math notation (x^2, sqrt, fractions, theta) into KaTeX formulas across all questions"
+              >
+                <Sparkles size={14} />
+                <span>Auto-Format Math to LaTeX</span>
+              </button>
+
               <button
                 onClick={handleCommitImport}
                 disabled={selectedCount === 0}

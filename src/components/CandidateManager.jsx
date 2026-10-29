@@ -11,7 +11,7 @@ import {
   deleteCandidate, resetCandidateExam, bulkAddCandidates, 
   generateCandidateRegNo, generateCandidatePasscode, getScheduledExams,
   syncFromSupabase, getGlobalResultsReleased, setGlobalResultsReleased,
-  toggleCandidateResultsReleased
+  toggleCandidateResultsReleased, getAllSubjects 
 } from '../utils/storage';
 import { checkSupabaseStatus, pushAllCandidatesToSupabase } from '../services/supabaseService';
 import CandidateExamSlipModal from './CandidateExamSlipModal';
@@ -78,6 +78,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const [newPasscodeVal, setNewPasscodeVal] = useState('');
   const [resetCopied, setResetCopied] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
+  const [allSubjects, setAllSubjects] = useState(() => getAllSubjects());
   const [supabaseStatus, setSupabaseStatus] = useState({ checking: true, connected: false, isRlsBlocked: false, message: '' });
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
 
@@ -126,9 +127,11 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
   const loadData = () => {
     setCandidates(getCandidates());
     setScheduledExams(getScheduledExams());
+    setAllSubjects(getAllSubjects());
     syncFromSupabase().then(() => {
       setCandidates(getCandidates());
       setScheduledExams(getScheduledExams());
+      setAllSubjects(getAllSubjects());
     }).catch(() => {});
   };
 
@@ -765,6 +768,12 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                                     <span>{cand.email}</span>
                                   </div>
                                 )}
+                                {cand.scheduledExamId && (
+                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 w-fit">
+                                    <Calendar size={10} />
+                                    <span>{scheduledExams.find(e => e.id === cand.scheduledExamId)?.title || 'Assigned Mock Batch'}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -786,7 +795,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                           <td className="py-3.5 px-3 max-w-xs">
                             <div className="flex flex-wrap gap-1">
                               {cand.registeredSubjects?.map(subId => {
-                                const subName = SUBJECTS.find(s => s.id === subId)?.name || subId;
+                                const subName = allSubjects.find(s => s.id === subId)?.name || subId;
                                 return (
                                   <span 
                                     key={subId} 
@@ -1038,6 +1047,31 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
               </div>
             </div>
 
+            {/* Scheduled Mock Batch Assignment */}
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-sky-500/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-sky-400">
+                  Assign Scheduled Mock Exam / Batch
+                </label>
+                <span className="text-[11px] text-emerald-400 font-semibold">Automatic PIN-Free Entry</span>
+              </div>
+              <select
+                value={regScheduledExamId}
+                onChange={(e) => setRegScheduledExamId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-medium focus:outline-none focus:border-sky-500 text-xs"
+              >
+                <option value="">— General Open Mock (No Specific Batch) —</option>
+                {scheduledExams.map(ex => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.title} • {ex.durationMinutes} mins (PIN: {ex.accessCode})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400">
+                When assigned to a batch, this candidate will be launched directly into their batch exam upon entering their Reg Number & Passcode (no PIN required).
+              </p>
+            </div>
+
             {/* Auto Credentials */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60">
               <div>
@@ -1097,7 +1131,7 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {SUBJECTS.map(sub => {
+                {allSubjects.map(sub => {
                   const isSelected = regSubjects.includes(sub.id);
                   const isMandatory = regExamType === 'JAMB UTME' && sub.mandatory;
 
@@ -1239,6 +1273,24 @@ export default function CandidateManager({ onDirectLoginCandidate }) {
                 >
                   <option value="JAMB UTME">JAMB UTME (4 Subjects)</option>
                   <option value="WASSCE">WASSCE</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                  Assign to Scheduled Mock Batch
+                </label>
+                <select
+                  value={bulkAssignExamId}
+                  onChange={(e) => setBulkAssignExamId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-sky-500"
+                >
+                  <option value="">— No Batch Assigned (Open Mock) —</option>
+                  {scheduledExams.map(ex => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.title} (PIN: {ex.accessCode})
+                    </option>
+                  ))}
                 </select>
               </div>
 

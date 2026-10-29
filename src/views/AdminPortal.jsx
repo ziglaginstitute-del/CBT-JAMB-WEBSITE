@@ -1,28 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, BookOpen, BarChart3, Calendar, Lock, Unlock, 
-  Usb, HardDrive, ShieldCheck, Monitor, Sparkles, RefreshCw, AlertTriangle
+  Usb, HardDrive, ShieldCheck, Monitor, Sparkles, RefreshCw, AlertTriangle, Layers, Cloud
 } from 'lucide-react';
 import QuestionBankManager from '../components/QuestionBankManager';
 import CandidateManager from '../components/CandidateManager';
 import CandidateResultsTable from '../components/CandidateResultsTable';
 import ExamScheduler from '../components/ExamScheduler';
+import SubjectManager from '../components/SubjectManager';
 import { 
   exportQuestionBankUSB, 
   importQuestionBankUSB, 
   toggleExamKioskMode, 
   isElectronApp, 
-  syncFromSupabase 
+  syncFromSupabase,
+  initMultiAdminSync 
 } from '../utils/storage';
 
 export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam }) {
-  const [activeAdminTab, setActiveAdminTab] = useState('question-bank'); // 'question-bank' | 'candidates' | 'gradebook' | 'scheduler'
+  const [activeAdminTab, setActiveAdminTab] = useState('question-bank'); // 'question-bank' | 'candidates' | 'gradebook' | 'scheduler' | 'subjects'
   const [isKioskMode, setIsKioskMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncingLive, setIsSyncingLive] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(new Date());
+  const [syncKey, setSyncKey] = useState(0);
   const [toastMsg, setToastMsg] = useState(null);
 
   const isElectron = isElectronApp();
+
+  // Multi-user Concurrent Admin Synchronization Listener
+  useEffect(() => {
+    const unsubscribe = initMultiAdminSync((event) => {
+      setLastSyncTime(new Date());
+      setSyncKey(prev => prev + 1);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingLive(true);
+    try {
+      await syncFromSupabase();
+      setLastSyncTime(new Date());
+      setSyncKey(prev => prev + 1);
+      showToast('✅ Multi-Admin sync completed: Latest candidates & questions retrieved.');
+    } catch (e) {
+      showToast('⚠️ Cloud sync notice: Operating in local offline mode.');
+    } finally {
+      setIsSyncingLive(false);
+    }
+  };
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -114,6 +142,24 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
 
         {/* Global Hardware & Lockdown Quick Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Multi-Admin Live Concurrent Sync Status */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-semibold hidden sm:inline">Multi-Admin Sync:</span>
+            <span className="text-slate-400 font-mono text-[11px]">
+              {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+            <button
+              type="button"
+              onClick={handleManualCloudSync}
+              disabled={isSyncingLive}
+              className="p-1 text-slate-400 hover:text-sky-400 transition"
+              title="Manual cloud sync from Supabase"
+            >
+              <RefreshCw size={13} className={isSyncingLive ? 'animate-spin text-sky-400' : ''} />
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleExportFlashDrive}
@@ -122,7 +168,7 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
             title="Export full question bank to USB drive"
           >
             <Usb size={15} className="text-sky-400" />
-            <span>{isExporting ? 'Exporting...' : 'Export Question Bank to Flash Drive'}</span>
+            <span>{isExporting ? 'Exporting...' : 'Export USB'}</span>
           </button>
 
           <button
@@ -133,7 +179,7 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
             title="Import questions from USB drive"
           >
             <HardDrive size={15} className="text-amber-400" />
-            <span>{isImporting ? 'Importing...' : 'Import Questions from Flash Drive'}</span>
+            <span>{isImporting ? 'Importing...' : 'Import USB'}</span>
           </button>
 
           <button
@@ -146,7 +192,7 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
             }`}
           >
             {isKioskMode ? <Unlock size={15} /> : <Lock size={15} />}
-            <span>{isKioskMode ? 'Exit Exam Lockdown' : 'Exam Center Kiosk Mode'}</span>
+            <span>{isKioskMode ? 'Exit Kiosk' : 'Kiosk Mode'}</span>
           </button>
         </div>
       </div>
@@ -162,7 +208,19 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
           }`}
         >
           <BookOpen size={16} />
-          <span>Question Bank Management</span>
+          <span>Question Bank</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('subjects')}
+          className={`px-4 py-2 rounded-xl flex items-center gap-2 transition ${
+            activeAdminTab === 'subjects'
+              ? 'bg-sky-600 text-white shadow-md shadow-sky-600/25'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          <Layers size={16} />
+          <span>Subjects & Curriculum</span>
         </button>
 
         <button
@@ -204,13 +262,14 @@ export default function AdminPortal({ onDirectLoginCandidate, onDirectLaunchExam
 
       {/* Active Sub-Tab View */}
       <div>
-        {activeAdminTab === 'question-bank' && <QuestionBankManager />}
+        {activeAdminTab === 'question-bank' && <QuestionBankManager key={syncKey} />}
+        {activeAdminTab === 'subjects' && <SubjectManager key={syncKey} onSubjectsUpdated={() => setSyncKey(k => k + 1)} />}
         {activeAdminTab === 'candidates' && (
-          <CandidateManager onDirectLoginCandidate={onDirectLoginCandidate} />
+          <CandidateManager key={syncKey} onDirectLoginCandidate={onDirectLoginCandidate} />
         )}
-        {activeAdminTab === 'gradebook' && <CandidateResultsTable />}
+        {activeAdminTab === 'gradebook' && <CandidateResultsTable key={syncKey} />}
         {activeAdminTab === 'scheduler' && (
-          <ExamScheduler onDirectLaunchExam={onDirectLaunchExam} />
+          <ExamScheduler key={syncKey} onDirectLaunchExam={onDirectLaunchExam} />
         )}
       </div>
 

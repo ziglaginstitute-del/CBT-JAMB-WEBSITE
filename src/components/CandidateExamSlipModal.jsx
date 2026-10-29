@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { 
   X, Printer, GraduationCap, ShieldCheck, 
-  MapPin, User, QrCode, BookOpen, ArrowLeft, Play, AlertCircle
+  MapPin, User, QrCode, BookOpen, ArrowLeft, Play, AlertCircle, FileDown
 } from 'lucide-react';
-import { SUBJECTS } from '../data/questions';
+import { getAllSubjects } from '../utils/storage';
 
 export default function CandidateExamSlipModal({ 
   candidate, 
@@ -34,7 +34,8 @@ export default function CandidateExamSlipModal({
   };
 
   const getSubjectName = (id) => {
-    return SUBJECTS.find(s => s.id === id)?.name || id;
+    const allSubs = getAllSubjects();
+    return allSubs.find(s => s.id === id)?.name || id;
   };
 
   const isCompleted = candidate.status === 'Completed';
@@ -51,7 +52,7 @@ export default function CandidateExamSlipModal({
         }
       }}
     >
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 print:border-none print:shadow-none print:bg-white print:text-black print:my-0">
+      <div className="printable-slip bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 print:border-none print:shadow-none print:bg-white print:text-black print:my-0">
         
         {/* Top Modal Controls Header (Hidden in Print) */}
         <div className="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between text-xs print:hidden">
@@ -74,10 +75,10 @@ export default function CandidateExamSlipModal({
               type="button"
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold transition shadow-sm"
-              title="Print official docket"
+              title="Print official docket to PDF or physical printer"
             >
               <Printer size={14} />
-              <span>Print Slip</span>
+              <span>Print to PDF / Docket</span>
             </button>
             <button
               type="button"
@@ -86,7 +87,7 @@ export default function CandidateExamSlipModal({
               title="Close modal (Esc)"
             >
               <X size={14} />
-              <span>Close Slip</span>
+              <span>Close</span>
             </button>
           </div>
         </div>

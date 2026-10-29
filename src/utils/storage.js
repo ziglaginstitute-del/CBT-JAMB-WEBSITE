@@ -20,6 +20,67 @@ const QUESTION_BANK_KEY = 'prepcbt_question_bank';
 const SCHEDULED_EXAMS_KEY = 'prepcbt_scheduled_exams';
 const CANDIDATES_KEY = 'prepcbt_registered_candidates';
 const RESULTS_RELEASED_KEY = 'prepcbt_results_released';
+const CUSTOM_SUBJECTS_KEY = 'prepcbt_custom_subjects';
+
+// ============================================================================
+// DYNAMIC SUBJECTS ENGINE (PRE-POPULATED + ADMIN CUSTOM SUBJECTS)
+// ============================================================================
+
+export const getCustomSubjects = () => {
+  try {
+    const raw = localStorage.getItem(CUSTOM_SUBJECTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveCustomSubjects = (subjects) => {
+  try {
+    localStorage.setItem(CUSTOM_SUBJECTS_KEY, JSON.stringify(subjects));
+    syncToElectronDisk();
+  } catch (e) {
+    console.error('Failed to save custom subjects', e);
+  }
+};
+
+export const getAllSubjects = () => {
+  const custom = getCustomSubjects();
+  const map = new Map();
+  // Add base default subjects
+  SUBJECTS.forEach(s => map.set(s.id, s));
+  // Add custom subjects
+  custom.forEach(s => map.set(s.id, s));
+  return Array.from(map.values());
+};
+
+export const addCustomSubject = (subject) => {
+  if (!subject || !subject.name) return null;
+  const id = subject.id || subject.name.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+  const custom = getCustomSubjects();
+  const existingIdx = custom.findIndex(s => s.id === id);
+  const newSub = {
+    id,
+    name: subject.name.trim(),
+    icon: subject.icon || 'BookOpen',
+    isCustom: true,
+    createdAt: new Date().toISOString()
+  };
+  if (existingIdx !== -1) {
+    custom[existingIdx] = newSub;
+  } else {
+    custom.push(newSub);
+  }
+  saveCustomSubjects(custom);
+  return newSub;
+};
+
+export const deleteCustomSubject = (id) => {
+  const custom = getCustomSubjects();
+  const filtered = custom.filter(s => s.id !== id);
+  saveCustomSubjects(filtered);
+  return filtered;
+};
 
 // ============================================================================
 // ELECTRON OFFLINE DATABASE PERSISTENCE & HARDWARE BRIDGE
@@ -41,6 +102,7 @@ export const syncToElectronDisk = () => {
         candidates: getCandidates(),
         scheduledExams: getScheduledExams(),
         resultsReleased: getGlobalResultsReleased(),
+        customSubjects: getCustomSubjects(),
         lastSaved: new Date().toISOString()
       };
       await window.electronAPI.saveData(dump);
@@ -66,6 +128,9 @@ export const initElectronStorage = async () => {
       }
       if (typeof offlineDb.resultsReleased === 'boolean') {
         localStorage.setItem(RESULTS_RELEASED_KEY, offlineDb.resultsReleased ? 'true' : 'false');
+      }
+      if (Array.isArray(offlineDb.customSubjects) && offlineDb.customSubjects.length > 0) {
+        localStorage.setItem(CUSTOM_SUBJECTS_KEY, JSON.stringify(offlineDb.customSubjects));
       }
       return true;
     } else {
@@ -314,6 +379,48 @@ export const syncFromSupabase = async () => {
   } catch (err) {
     console.warn('Background Supabase sync notice:', err);
   }
+};
+
+// ============================================================================
+// MULTI-ADMIN CONCURRENT SYNCHRONIZATION ENGINE
+// Allows multiple examination officers/admins to work simultaneously across
+// different computers or browser windows with real-time state synchronization.
+// ============================================================================
+export const initMultiAdminSync = (onDataUpdate) => {
+  if (typeof window === 'undefined') return () => {};
+
+  // 1. Cross-tab local storage event listener (instant local sync)
+  const handleStorageChange = (e) => {
+    if (
+      e.key === CANDIDATES_KEY ||
+      e.key === QUESTION_BANK_KEY ||
+      e.key === SCHEDULED_EXAMS_KEY ||
+      e.key === RESULTS_RELEASED_KEY ||
+      e.key === CUSTOM_SUBJECTS_KEY
+    ) {
+      if (onDataUpdate) {
+        onDataUpdate({ source: 'local_storage', key: e.key, timestamp: new Date().toISOString() });
+      }
+    }
+  };
+  window.addEventListener('storage', handleStorageChange);
+
+  // 2. Periodic background Supabase sync for concurrent cloud admins (every 8 seconds)
+  const syncInterval = setInterval(async () => {
+    try {
+      await syncFromSupabase();
+      if (onDataUpdate) {
+        onDataUpdate({ source: 'supabase_poll', timestamp: new Date().toISOString() });
+      }
+    } catch {
+      // Quiet background network retry
+    }
+  }, 8000);
+
+  return () => {
+    window.removeEventListener('storage', handleStorageChange);
+    clearInterval(syncInterval);
+  };
 };
 
 // ============================================================================

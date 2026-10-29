@@ -7,9 +7,8 @@ import {
 import { 
   getCandidates, resetCandidateExam, syncFromSupabase,
   getGlobalResultsReleased, setGlobalResultsReleased,
-  toggleCandidateResultsReleased, updateCandidate 
+  toggleCandidateResultsReleased, updateCandidate, getAllSubjects 
 } from '../utils/storage';
-import { SUBJECTS } from '../data/questions';
 import SendResultEmailModal from './SendResultEmailModal';
 import StudentResultReviewModal from './StudentResultReviewModal';
 
@@ -42,7 +41,29 @@ export default function CandidateResultsTable() {
   }, []);
 
   const getSubjectName = (subId) => {
-    return SUBJECTS.find(s => s.id === subId)?.name || subId;
+    const allSubs = getAllSubjects();
+    return allSubs.find(s => s.id === subId)?.name || subId;
+  };
+
+  const handleNotifyAllReleasedCandidates = () => {
+    const eligible = candidates.filter(c => 
+      c.status === 'Completed' && 
+      (c.resultsReleased || isGlobalReleased) && 
+      c.email && c.email.includes('@')
+    );
+
+    if (eligible.length === 0) {
+      showToast('⚠️ No completed candidates with registered emails are currently released.');
+      return;
+    }
+
+    // Pick first candidate or prompt
+    if (eligible.length === 1) {
+      setCandidateToSendEmail(eligible[0]);
+    } else {
+      setCandidateToSendEmail(eligible[0]);
+      showToast(`📢 Ready to dispatch results to ${eligible.length} released candidates! First recipient queued.`);
+    }
   };
 
   const handleReset = (candidateId, name) => {
@@ -264,18 +285,30 @@ export default function CandidateResultsTable() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleToggleGlobalRelease}
-          className={`px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg shrink-0 ${
-            isGlobalReleased
-              ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
-          }`}
-        >
-          {isGlobalReleased ? <Lock size={14} /> : <Unlock size={14} />}
-          <span>{isGlobalReleased ? 'Revoke / Withhold All Scores' : 'Approve & Release All Results'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleNotifyAllReleasedCandidates}
+            className="px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/25"
+            title="Dispatch official result notification emails to released candidates"
+          >
+            <Mail size={14} />
+            <span>Email Released Students</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleGlobalRelease}
+            className={`px-4 py-2.5 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-lg ${
+              isGlobalReleased
+                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
+            }`}
+          >
+            {isGlobalReleased ? <Lock size={14} /> : <Unlock size={14} />}
+            <span>{isGlobalReleased ? 'Revoke / Withhold All Scores' : 'Approve & Release All Results'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters and Controls */}

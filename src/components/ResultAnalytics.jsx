@@ -3,7 +3,8 @@ import {
   Award, CheckCircle2, XCircle, Clock, RotateCcw, 
   ChevronRight, BookOpen, AlertCircle, FileText, Check, HelpCircle 
 } from 'lucide-react';
-import { SUBJECTS, getWassceGrade } from '../data/questions';
+import { getWassceGrade } from '../data/questions';
+import { getAllSubjects } from '../utils/storage';
 import MathText from './MathText';
 import Question from './Question';
 
@@ -13,10 +14,11 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
 
   const [reviewFilter, setReviewFilter] = useState('all'); // 'all' | 'incorrect' | 'correct'
   const [activeReviewSubject, setActiveReviewSubject] = useState(subjects[0] || 'all');
+  const allSubjects = getAllSubjects();
 
   // Calculate subject-level statistics
   const subjectScores = subjects.map(subId => {
-    const subObj = SUBJECTS.find(s => s.id === subId) || { name: subId, id: subId };
+    const subObj = allSubjects.find(s => s.id === subId) || { name: subId, id: subId };
     const questions = examQuestionsBySubject[subId] || [];
     let correct = 0;
     let attempted = 0;
@@ -283,7 +285,7 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
         {/* Subject Review Switcher */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {subjects.map(subId => {
-            const sub = SUBJECTS.find(s => s.id === subId);
+            const sub = allSubjects.find(s => s.id === subId);
             return (
               <button
                 key={subId}

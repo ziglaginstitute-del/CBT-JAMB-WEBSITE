@@ -3,8 +3,7 @@ import {
   Key, Clock, User, ShieldAlert, CheckCircle2, 
   AlertTriangle, ArrowRight, X, Sparkles, BookOpen, Calendar 
 } from 'lucide-react';
-import { findExamByPin, getScheduledExams } from '../utils/storage';
-import { SUBJECTS } from '../data/questions';
+import { findExamByPin, getScheduledExams, getAllSubjects } from '../utils/storage';
 
 export default function ScheduledExamEntry({ isOpen, onClose, onLaunchExam }) {
   const [pin, setPin] = useState('');
@@ -213,7 +212,7 @@ export default function ScheduledExamEntry({ isOpen, onClose, onLaunchExam }) {
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {matchedExam.subjectIds?.map(subId => (
                   <span key={subId} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-xs font-semibold text-slate-300">
-                    {SUBJECTS.find(s => s.id === subId)?.name || subId}
+                    {getAllSubjects().find(s => s.id === subId)?.name || subId}
                   </span>
                 ))}
               </div>

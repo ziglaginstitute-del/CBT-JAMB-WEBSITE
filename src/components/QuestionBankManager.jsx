@@ -5,18 +5,22 @@ import {
   Sparkles, Layers, Award, ChevronDown, ChevronUp, Copy,
   Usb, HardDrive, Lock, Unlock, Monitor, Download, Upload, ShieldAlert
 } from 'lucide-react';
-import { SUBJECTS, DIFFICULTIES } from '../data/questions';
+import { DIFFICULTIES } from '../data/questions';
 import { 
   getQuestionBank, addQuestion, updateQuestion, 
   deleteQuestion, saveQuestionBank, syncFromSupabase,
-  exportQuestionBankUSB, importQuestionBankUSB, toggleExamKioskMode, isElectronApp
+  exportQuestionBankUSB, importQuestionBankUSB, toggleExamKioskMode, isElectronApp,
+  getAllSubjects 
 } from '../utils/storage';
+import { autoFormatLatexString } from '../utils/latexHelper';
+import LatexEditorToolbar from './LatexEditorToolbar';
 import PDFQuestionUploader from './PDFQuestionUploader';
 import MathText from './MathText';
 import Question from './Question';
 
 export default function QuestionBankManager() {
   const [questionBank, setQuestionBank] = useState({});
+  const [allSubjects, setAllSubjects] = useState(() => getAllSubjects());
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('all');
   const [selectedDiffFilter, setSelectedDiffFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,8 +104,10 @@ export default function QuestionBankManager() {
 
   const reloadBank = () => {
     setQuestionBank(getQuestionBank());
+    setAllSubjects(getAllSubjects());
     syncFromSupabase().then(() => {
       setQuestionBank(getQuestionBank());
+      setAllSubjects(getAllSubjects());
     }).catch(() => {});
   };
 
@@ -445,7 +451,7 @@ export default function QuestionBankManager() {
           >
             All Subjects ({totalQuestions})
           </button>
-          {SUBJECTS.map(sub => {
+          {allSubjects.map(sub => {
             const count = (questionBank[sub.id] || []).length;
             const isSelected = selectedSubjectFilter === sub.id;
             return (
@@ -494,7 +500,7 @@ export default function QuestionBankManager() {
           </div>
         ) : (
           filteredQuestions.map((q, idx) => {
-            const subObj = SUBJECTS.find(s => s.id === q.subject) || { name: q.subject };
+            const subObj = allSubjects.find(s => s.id === q.subject) || { name: q.subject };
 
             return (
               <div
@@ -586,7 +592,7 @@ export default function QuestionBankManager() {
                     onChange={(e) => setFormSubject(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-medium"
                   >
-                    {SUBJECTS.map(s => (
+                    {allSubjects.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
@@ -646,64 +652,29 @@ export default function QuestionBankManager() {
                   </span>
                 </div>
 
-                {/* Math & Science Quick Symbols Toolbar */}
-                <div className="p-2 bg-slate-950/70 border border-slate-800 rounded-xl space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-400">
-                    <Sparkles size={12} className="text-sky-400" />
-                    <span>Quick LaTeX Formulas & Symbols (Click to insert):</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {[
-                      { label: 'x²', val: '$x^2$' },
-                      { label: 'a/b', val: '$\\frac{a}{b}$' },
-                      { label: '√x', val: '$\\sqrt{x}$' },
-                      { label: 'x₁', val: '$x_1$' },
-                      { label: '±', val: '$\\pm$' },
-                      { label: '×', val: '$\\times$' },
-                      { label: '÷', val: '$\\div$' },
-                      { label: 'θ', val: '$\\theta$' },
-                      { label: 'π', val: '$\\pi$' },
-                      { label: '∫', val: '$\\int_{0}^{t}$' },
-                      { label: '≤', val: '$\\le$' },
-                      { label: '≥', val: '$\\ge$' },
-                      { label: 'Δ', val: '$\\Delta$' },
-                      { label: 'm/s²', val: '$\\text{m/s}^2$' },
-                      { label: 'H₂SO₄', val: '$\\text{H}_2\\text{SO}_4$' },
-                    ].map(sym => (
-                      <button
-                        key={sym.label}
-                        type="button"
-                        onClick={() => setFormQuestion(prev => prev ? `${prev} ${sym.val}` : sym.val)}
-                        className="px-2 py-0.5 bg-slate-800 hover:bg-sky-600 hover:text-white text-slate-300 rounded text-[11px] font-mono font-semibold transition border border-slate-700/60"
-                        title={`Insert ${sym.val}`}
-                      >
-                        {sym.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {/* Math & Science Quick LaTeX Toolbar */}
+                <LatexEditorToolbar
+                  previewText={formQuestion}
+                  onAutoFormat={() => {
+                    setFormQuestion(autoFormatLatexString(formQuestion));
+                    setFormOptA(autoFormatLatexString(formOptA));
+                    setFormOptB(autoFormatLatexString(formOptB));
+                    setFormOptC(autoFormatLatexString(formOptC));
+                    setFormOptD(autoFormatLatexString(formOptD));
+                    setFormExplanation(autoFormatLatexString(formExplanation));
+                  }}
+                  onInsertLatex={(latex) => setFormQuestion(prev => prev ? `${prev} $${latex}$` : `$${latex}$`)}
+                  showPreview={true}
+                />
 
                 <textarea
                   rows={3}
                   value={formQuestion}
                   onChange={(e) => setFormQuestion(e.target.value)}
                   placeholder="e.g. Solve for $x$: $3x^2 - 5x + 2 = 0$, or calculate the velocity in $\text{m/s}$..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500 font-medium"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500 font-medium font-mono text-xs sm:text-sm"
                   required
                 />
-
-                {/* Live Formula Preview Box */}
-                {formQuestion.trim() && (
-                  <div className="p-3 bg-slate-950/90 rounded-xl border border-sky-500/30 space-y-1">
-                    <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles size={12} />
-                      <span>Live Mathematical & Formula Preview:</span>
-                    </span>
-                    <div className="text-white text-sm">
-                      <MathText text={formQuestion} />
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Options A, B, C, D */}

@@ -3,8 +3,8 @@ import {
   CheckCircle2, XCircle, Lightbulb, ChevronRight, ChevronLeft, 
   RotateCcw, Sparkles, Filter, Award, AlertCircle, Key, UserCheck, ShieldCheck 
 } from 'lucide-react';
-import { SUBJECTS, DIFFICULTIES } from '../data/questions';
-import { getQuestionBank } from '../utils/storage';
+import { DIFFICULTIES } from '../data/questions';
+import { getQuestionBank, getAllSubjects } from '../utils/storage';
 import MathText from './MathText';
 import Question from './Question';
 
@@ -17,10 +17,12 @@ export default function PracticeMode({ onStartMock, onOpenCandidateLogin }) {
   const [showHint, setShowHint] = useState(false);
   const [practiceStats, setPracticeStats] = useState({ correct: 0, attempted: 0 });
   const [questionBank, setQuestionBank] = useState(() => getQuestionBank());
+  const [allSubjects, setAllSubjects] = useState(() => getAllSubjects());
 
   // Reload bank when component renders
   useEffect(() => {
     setQuestionBank(getQuestionBank());
+    setAllSubjects(getAllSubjects());
   }, []);
 
   // Filter questions for the selected subject and difficulty
@@ -128,7 +130,7 @@ export default function PracticeMode({ onStartMock, onOpenCandidateLogin }) {
 
         {/* Subject Pills */}
         <div className="pt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {SUBJECTS.map(sub => {
+          {allSubjects.map(sub => {
             const isSelected = selectedSubject === sub.id;
             return (
               <button

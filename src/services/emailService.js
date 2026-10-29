@@ -1,4 +1,4 @@
-import { SUBJECTS } from '../data/questions';
+import { getAllSubjects } from '../utils/storage';
 
 /**
  * ============================================================================
@@ -15,11 +15,12 @@ export const generateResultEmailContent = (candidate) => {
   const candidateEmail = candidate.email || 'student@example.com';
   const examType = candidate.examType || 'JAMB UTME';
   const minutesSpent = Math.round(timeSpentSeconds / 60);
+  const allSubjects = getAllSubjects();
 
   // Subject breakdown text
   let subjectBreakdownText = '';
   Object.entries(subjectScores).forEach(([subId, stats]) => {
-    const subName = SUBJECTS.find(s => s.id === subId)?.name || subId.toUpperCase();
+    const subName = allSubjects.find(s => s.id === subId)?.name || subId.toUpperCase();
     subjectBreakdownText += `  • ${subName}: ${stats.score}% (${stats.correct} / ${stats.total} correct)\n`;
   });
 
@@ -28,7 +29,7 @@ export const generateResultEmailContent = (candidate) => {
   let totalMissedCount = 0;
 
   Object.entries(examQuestionsBySubject).forEach(([subId, qList]) => {
-    const subName = SUBJECTS.find(s => s.id === subId)?.name || subId.toUpperCase();
+    const subName = allSubjects.find(s => s.id === subId)?.name || subId.toUpperCase();
     const missedInSub = (qList || []).filter(q => answers[q.id] !== q.correctOption);
 
     if (missedInSub.length > 0) {

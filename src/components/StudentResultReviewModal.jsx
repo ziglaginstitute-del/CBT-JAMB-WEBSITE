@@ -4,7 +4,7 @@ import {
   Clock, Check, X, ChevronRight, AlertCircle, ArrowLeft,
   Sparkles, ShieldCheck, Filter
 } from 'lucide-react';
-import { SUBJECTS } from '../data/questions';
+import { getAllSubjects } from '../utils/storage';
 import { openMailClientForResult } from '../services/emailService';
 import MathText from './MathText';
 
@@ -20,6 +20,7 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
     examQuestionsBySubject = {} 
   } = result;
 
+  const allSubjectsList = getAllSubjects();
   const subjectsList = candidate?.registeredSubjects || Object.keys(subjectScores);
   const [selectedSubject, setSelectedSubject] = useState(subjectsList[0] || 'all');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'missed' | 'correct'
@@ -33,6 +34,10 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
 
   const handleEmailResult = () => {
     openMailClientForResult(candidate);
+  };
+
+  const getSubjectMeta = (subId) => {
+    return allSubjectsList.find(s => s.id === subId) || { name: subId.toUpperCase(), color: '#38bdf8' };
   };
 
   // Compile active questions for review
@@ -62,7 +67,7 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 print:border-none print:shadow-none print:bg-white print:text-black print:my-0 flex flex-col max-h-[92vh]">
+      <div className="printable-transcript bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8 print:border-none print:shadow-none print:bg-white print:text-black print:my-0 flex flex-col max-h-[92vh]">
         
         {/* Top Header Controls (Hidden in Print) */}
         <div className="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between text-xs print:hidden shrink-0">
@@ -84,9 +89,10 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
               type="button"
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold transition border border-slate-700"
+              title="Print official result slip to PDF or paper"
             >
               <Printer size={14} />
-              <span>Print Result</span>
+              <span>Print to PDF / Result</span>
             </button>
             <button
               type="button"
@@ -165,7 +171,7 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {Object.entries(subjectScores).map(([subId, stats]) => {
-                const subMeta = SUBJECTS.find(s => s.id === subId) || { name: subId.toUpperCase(), color: '#38bdf8' };
+                const subMeta = getSubjectMeta(subId);
                 return (
                   <div 
                     key={subId}
@@ -218,7 +224,7 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
                   All Subjects
                 </button>
                 {subjectsList.map(sId => {
-                  const sName = SUBJECTS.find(s => s.id === sId)?.name || sId;
+                  const sName = getSubjectMeta(sId)?.name || sId;
                   return (
                     <button
                       key={sId}

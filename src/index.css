@@ -34,3 +34,72 @@
 .animate-shake {
   animation: shake 0.35s ease-in-out;
 }
+
+/* ============================================================================
+   HIGH-FIDELITY PRINT TO PDF STYLESHEET (DOCKET & RESULT TRANSCRIPT)
+   Ensures official examination slips and student performance transcripts
+   print cleanly to PDF or physical printer without dark background artifacts.
+   ============================================================================ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide navigation bars, footers, toolbars, buttons and modals backdrops */
+  nav, footer, .print-hide, .print\\:hidden, button, [role="dialog"] > div:first-child:not(.printable-slip):not(.printable-transcript) {
+    display: none !important;
+  }
+
+  /* Neutralize modal overlays for clean paper layout */
+  .fixed.inset-0 {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .printable-slip, .printable-transcript {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Keep cards and badges visible and crisp on white paper */
+  .printable-slip *, .printable-transcript * {
+    visibility: visible !important;
+  }
+
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Table borders in print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+  }
+}

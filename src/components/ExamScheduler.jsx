@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, Key, Plus, Users, Award, 
   Trash2, Eye, Copy, CheckCircle2, AlertTriangle, 
-  Sparkles, Check, X, FileText, ChevronRight, Play 
+  Sparkles, Check, X, FileText, ChevronRight, Play, BookOpen, Layers, Filter
 } from 'lucide-react';
-import { SUBJECTS } from '../data/questions';
 import { 
   getScheduledExams, addScheduledExam, 
   deleteScheduledExam, getQuestionBank,
-  syncFromSupabase
+  syncFromSupabase, getAllSubjects 
 } from '../utils/storage';
+import { getTargetQuestionCountForSubject, DEFAULT_MOCK_QUESTION_COUNTS } from '../data/defaultSettings';
 
 export default function ExamScheduler({ onDirectLaunchExam }) {
   const [exams, setExams] = useState([]);
+  const [allSubjects, setAllSubjects] = useState([]);
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [viewingSubmissionsExam, setViewingSubmissionsExam] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -25,18 +26,26 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [selectedSubjects, setSelectedSubjects] = useState(['english', 'mathematics', 'physics', 'chemistry']);
-  const [questionSelectionMode, setQuestionSelectionMode] = useState('auto_balanced'); // 'auto_balanced' | 'all'
+  const [questionSelectionMode, setQuestionSelectionMode] = useState('jamb_standard'); // 'jamb_standard' | 'topic_filter' | 'all'
+  const [subjectQuestionCounts, setSubjectQuestionCounts] = useState({
+    english: 60,
+    defaultOther: 40
+  });
+  const [selectedTopics, setSelectedTopics] = useState({}); // { [subId]: string[] }
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     loadExams();
     initDefaultDates();
+    setAllSubjects(getAllSubjects());
   }, []);
 
   const loadExams = () => {
     setExams(getScheduledExams());
+    setAllSubjects(getAllSubjects());
     syncFromSupabase().then(() => {
       setExams(getScheduledExams());
+      setAllSubjects(getAllSubjects());
     }).catch(() => {});
   };
 
@@ -52,9 +61,7 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
 
   const initDefaultDates = () => {
     const now = new Date();
-    // Start now
     const startStr = now.toISOString().slice(0, 16);
-    // End in 3 days
     const end = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
     const endStr = end.toISOString().slice(0, 16);
 
@@ -68,6 +75,12 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
     generateRandomPin();
     initDefaultDates();
     setSelectedSubjects(['english', 'mathematics', 'physics', 'chemistry']);
+    setSubjectQuestionCounts({
+      english: 60,
+      defaultOther: 40
+    });
+    setQuestionSelectionMode('jamb_standard');
+    setSelectedTopics({});
     setFormError('');
     setIsCreatorOpen(true);
   };
@@ -87,14 +100,38 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
     }
   };
 
+  const handleQuestionCountChange = (subId, count) => {
+    const num = Math.max(1, Math.min(200, parseInt(count, 10) || 1));
+    setSubjectQuestionCounts(prev => ({
+      ...prev,
+      [subId]: num
+    }));
+  };
+
+  const getAvailableTopicsForSubject = (subId) => {
+    const bank = getQuestionBank();
+    const list = bank[subId] || [];
+    const topics = new Set();
+    list.forEach(q => {
+      if (q.topic && q.topic.trim()) topics.add(q.topic.trim());
+    });
+    return Array.from(topics);
+  };
+
+  const toggleTopicSelection = (subId, topic) => {
+    setSelectedTopics(prev => {
+      const current = prev[subId] || [];
+      const updated = current.includes(topic)
+        ? current.filter(t => t !== topic)
+        : [...current, topic];
+      return { ...prev, [subId]: updated };
+    });
+  };
+
   const handleCreateExam = (e) => {
     e.preventDefault();
     if (!title.trim()) {
       setFormError('Exam title is required.');
-      return;
-    }
-    if (!accessCode.trim() || accessCode.trim().length < 4) {
-      setFormError('Please provide a valid Access PIN (at least 4-6 digits).');
       return;
     }
     if (examType === 'jamb' && selectedSubjects.length !== 4) {
@@ -112,27 +149,38 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
 
     selectedSubjects.forEach(subId => {
       const available = bank[subId] || [];
-      if (questionSelectionMode === 'auto_balanced' && available.length > 0) {
-        // Balance by difficulty: mix of beginner, intermediate, advanced
-        const beg = available.filter(q => q.difficulty === 'Beginner');
-        const inter = available.filter(q => q.difficulty === 'Intermediate');
-        const adv = available.filter(q => q.difficulty === 'Advanced');
+      let pool = [...available];
 
-        const combined = [...beg, ...inter, ...adv];
-        questionsBySubject[subId] = combined.length > 0 ? combined : available;
-      } else {
-        questionsBySubject[subId] = available;
+      // If topic filter mode is selected and topics were checked
+      const topicsForSub = selectedTopics[subId];
+      if (questionSelectionMode === 'topic_filter' && topicsForSub && topicsForSub.length > 0) {
+        pool = pool.filter(q => q.topic && topicsForSub.includes(q.topic));
       }
+
+      // Determine target question count for this subject (default 60 for English, 40 for others)
+      const targetCount = Number(subjectQuestionCounts[subId]) || (subId === 'english' ? 60 : (subjectQuestionCounts.defaultOther || 40));
+
+      let selectedList = pool.slice(0, targetCount);
+      // Fallback if topic filtering resulted in 0 questions
+      if (selectedList.length === 0 && available.length > 0) {
+        selectedList = available.slice(0, targetCount);
+      }
+
+      questionsBySubject[subId] = selectedList;
     });
+
+    const finalPin = accessCode.trim().replace(/[^0-9]/g, '') || Math.floor(100000 + Math.random() * 900000).toString();
 
     const newExamPayload = {
       title: title.trim(),
-      accessCode: accessCode.trim().replace(/[^0-9]/g, ''),
+      accessCode: finalPin,
       examType,
       subjectIds: selectedSubjects,
       durationMinutes: Number(durationMinutes),
       startsAt: new Date(startsAt).toISOString(),
       endsAt: new Date(endsAt).toISOString(),
+      questionCounts: subjectQuestionCounts,
+      selectionStrategy: questionSelectionMode,
       questionsBySubject,
       submissions: []
     };
@@ -140,7 +188,7 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
     addScheduledExam(newExamPayload);
     loadExams();
     setIsCreatorOpen(false);
-    showToast(`Exam "${title}" scheduled with PIN: ${newExamPayload.accessCode}`);
+    showToast(`Batch Exam "${title}" scheduled successfully!`);
   };
 
   const handleDelete = (id) => {
@@ -483,7 +531,7 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-                      6-Digit Access PIN
+                      Walk-in Access PIN
                     </label>
                     <button
                       type="button"
@@ -498,9 +546,12 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
                     value={accessCode}
                     maxLength={6}
                     onChange={(e) => setAccessCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="e.g. 784219"
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sky-400 font-mono font-bold tracking-widest text-base"
-                    required
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Optional: Candidates assigned to this batch in the candidate roster will launch automatically without needing to enter a PIN.
+                  </p>
                 </div>
               </div>
 
@@ -548,55 +599,109 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
                 </div>
               </div>
 
-              {/* Subject Selection */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
-                  Subjects ({selectedSubjects.length} {examType === 'jamb' ? '/ 4 Selected' : 'Selected'})
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {SUBJECTS.map(sub => {
+              {/* Subject Selection & Configurable Question Counts */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Subjects ({selectedSubjects.length} {examType === 'jamb' ? '/ 4 Selected' : 'Selected'})
+                  </label>
+                  <span className="text-[11px] text-sky-400 font-medium">
+                    Standard: English (60 Qs) + 3 Subjects (40 Qs each) = 180 Qs
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {allSubjects.map(sub => {
                     const isSelected = selectedSubjects.includes(sub.id);
                     const isMandatory = examType === 'jamb' && sub.id === 'english';
+                    const qCount = subjectQuestionCounts[sub.id] !== undefined
+                      ? subjectQuestionCounts[sub.id]
+                      : (sub.id === 'english' ? 60 : 40);
+
                     return (
-                      <button
+                      <div
                         key={sub.id}
-                        type="button"
-                        onClick={() => toggleSubject(sub.id)}
-                        className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center justify-between ${
+                        className={`p-3 rounded-xl border text-xs transition space-y-2 ${
                           isSelected
-                            ? 'bg-sky-600/20 border-sky-500 text-sky-200'
-                            : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800'
+                            ? 'bg-slate-900 border-sky-500/80 ring-1 ring-sky-500/30'
+                            : 'bg-slate-800/40 border-slate-700/60 opacity-60'
                         }`}
                       >
-                        <span className="truncate">{sub.name}</span>
-                        {isMandatory ? (
-                          <span className="text-[10px] bg-sky-950 text-sky-300 px-1 rounded uppercase font-mono">REQ</span>
-                        ) : isSelected ? (
-                          <Check size={14} className="text-sky-400 shrink-0" />
-                        ) : null}
-                      </button>
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => toggleSubject(sub.id)}
+                            className="flex items-center gap-2 font-bold text-left truncate flex-1"
+                          >
+                            <span className={isSelected ? 'text-white' : 'text-slate-400'}>{sub.name}</span>
+                            {isMandatory && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono uppercase">
+                                Mandatory
+                              </span>
+                            )}
+                          </button>
+
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isMandatory}
+                            onChange={() => toggleSubject(sub.id)}
+                            className="rounded border-slate-700 text-sky-600 focus:ring-sky-500 w-4 h-4"
+                          />
+                        </div>
+
+                        {isSelected && (
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
+                            <span className="text-slate-400">Questions in this Mock:</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                max="150"
+                                value={qCount}
+                                onChange={(e) => handleQuestionCountChange(sub.id, e.target.value)}
+                                className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-right font-mono font-bold text-sky-300 text-xs focus:outline-none focus:border-sky-500"
+                              />
+                              <span className="text-slate-500 font-semibold">Qs</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Question Balance Option */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
-                  Question Selection Strategy
+              {/* Question Selection Strategy */}
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Question Selection & Curriculum Strategy
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setQuestionSelectionMode('auto_balanced')}
+                    onClick={() => setQuestionSelectionMode('jamb_standard')}
                     className={`p-3 rounded-xl border text-left transition ${
-                      questionSelectionMode === 'auto_balanced'
+                      questionSelectionMode === 'jamb_standard'
                         ? 'bg-sky-500/15 border-sky-500 text-white ring-1 ring-sky-500'
                         : 'bg-slate-800/60 border-slate-700 text-slate-400'
                     }`}
                   >
-                    <div className="font-bold text-xs text-white">Auto-Balanced Difficulty</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">30% Beginner, 50% Intermediate, 20% Advanced</div>
+                    <div className="font-bold text-xs text-white">JAMB UTME Standard</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">60 English, 40 per other subject (Total 180 Qs)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQuestionSelectionMode('topic_filter')}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      questionSelectionMode === 'topic_filter'
+                        ? 'bg-sky-500/15 border-sky-500 text-white ring-1 ring-sky-500'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-white">Covered Topics Filter</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Only include topics taught in class so far</div>
                   </button>
 
                   <button
@@ -608,11 +713,67 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
                         : 'bg-slate-800/60 border-slate-700 text-slate-400'
                     }`}
                   >
-                    <div className="font-bold text-xs text-white">All Subject Questions</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">Include every author question in bank</div>
+                    <div className="font-bold text-xs text-white">All Question Bank Items</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Load full repository without limit</div>
                   </button>
                 </div>
               </div>
+
+              {/* Specific Topics Selector (When Topic Filter is Active) */}
+              {questionSelectionMode === 'topic_filter' && (
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-4 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2 text-sky-400 font-bold text-xs uppercase tracking-wider">
+                    <Filter size={14} />
+                    <span>Select Covered Topics for Each Examination Subject:</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {selectedSubjects.map(subId => {
+                      const subName = allSubjects.find(s => s.id === subId)?.name || subId;
+                      const topics = getAvailableTopicsForSubject(subId);
+                      const currentSelected = selectedTopics[subId] || [];
+
+                      return (
+                        <div key={subId} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-white">{subName} Topics</span>
+                            <span className="text-[11px] text-slate-400">
+                              {currentSelected.length > 0 ? `${currentSelected.length} topics selected` : 'All topics included'}
+                            </span>
+                          </div>
+
+                          {topics.length === 0 ? (
+                            <p className="text-[11px] text-slate-500 italic">
+                              No tagged topics found for this subject yet. All available questions will be included. (You can tag topics when uploading questions).
+                            </p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {topics.map(t => {
+                                const isChecked = currentSelected.includes(t);
+                                return (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => toggleTopicSelection(subId, t)}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${
+                                      isChecked
+                                        ? 'bg-sky-600 text-white'
+                                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                    }`}
+                                  >
+                                    {isChecked ? <Check size={12} /> : <Plus size={12} />}
+                                    <span>{t}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {formError && (
                 <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center gap-2">

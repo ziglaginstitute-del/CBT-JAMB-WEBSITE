@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, Key, Lock, User, ShieldCheck, 
   AlertTriangle, CheckCircle2, ArrowRight, Eye, EyeOff, 
-  Sparkles, BookOpen, Clock, AlertCircle, HelpCircle, Check, MapPin
+  Sparkles, BookOpen, Clock, AlertCircle, HelpCircle, Check, MapPin,
+  Mail, FileText, Printer, ExternalLink
 } from 'lucide-react';
-import { SUBJECTS } from '../data/questions';
 import { 
   getCandidates, findCandidateByCredentials, 
-  getScheduledExams 
+  getScheduledExams, getGlobalResultsReleased, getAllSubjects 
 } from '../utils/storage';
+import StudentResultReviewModal from './StudentResultReviewModal';
 
 export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
   const [candidates, setCandidates] = useState([]);
@@ -22,6 +23,7 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
   const [verifiedCandidate, setVerifiedCandidate] = useState(null);
   const [assignedExam, setAssignedExam] = useState(null);
   const [timeWindowStatus, setTimeWindowStatus] = useState({ valid: true, message: '' });
+  const [showStudentReviewModal, setShowStudentReviewModal] = useState(false);
 
   useEffect(() => {
     setCandidates(getCandidates());
@@ -104,7 +106,8 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
   };
 
   const getSubjectName = (id) => {
-    return SUBJECTS.find(s => s.id === id)?.name || id;
+    const allSubs = getAllSubjects();
+    return allSubs.find(s => s.id === id)?.name || id;
   };
 
   return (
@@ -253,36 +256,96 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
             <div className="p-6 space-y-5 text-xs sm:text-sm">
               
               {/* Security Constraint 1: Already Completed */}
-              {verifiedCandidate.status === 'Completed' ? (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-3">
-                  <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                    <AlertCircle size={18} />
-                    <span>Examination Already Submitted</span>
+              {verifiedCandidate.status === 'Completed' ? (() => {
+                const isReleased = Boolean(verifiedCandidate.resultsReleased ?? getGlobalResultsReleased());
+                return (
+                  <div className="space-y-4">
+                    {isReleased ? (
+                      /* Status: Approved & Released */
+                      <div className="p-5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-emerald-500/20">
+                          <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                            <CheckCircle2 size={20} />
+                            <span>Official CBT Result Approved & Released</span>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-mono font-bold">
+                            AUDITED
+                          </span>
+                        </div>
+
+                        <p className="text-slate-300 text-xs">
+                          Candidate <strong>{verifiedCandidate.fullName}</strong>, your official mock examination results have been verified and authorized by the center administration.
+                        </p>
+
+                        {verifiedCandidate.examResult && (
+                          <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Aggregate Score</span>
+                                <div className="font-mono font-black text-2xl text-emerald-400 mt-0.5">
+                                  {verifiedCandidate.examResult.totalScore} <span className="text-sm text-slate-400 font-normal">/ {verifiedCandidate.examResult.maxScore || 400}</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Overall Percentage</span>
+                                <div className="font-mono font-black text-2xl text-sky-400 mt-0.5">
+                                  {verifiedCandidate.examResult.percentage}%
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Registered Email Connection Notice */}
+                            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                              <span className="flex items-center gap-1.5 text-slate-300">
+                                <Mail size={13} className="text-sky-400" />
+                                <span>Connected Result Email:</span>
+                              </span>
+                              <span className="font-mono text-sky-300 font-bold">
+                                {verifiedCandidate.email || 'None registered'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-1 flex flex-col sm:flex-row gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowStudentReviewModal(true)}
+                            className="flex-1 py-3 px-4 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2"
+                          >
+                            <FileText size={15} />
+                            <span>View Full Transcript & Review Answers</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Status: Under Review / Withheld */
+                      <div className="p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                          <Lock size={18} />
+                          <span>Examination Completed — Result Withheld</span>
+                        </div>
+                        <p className="text-slate-300 text-xs leading-relaxed">
+                          Candidate <strong>{verifiedCandidate.fullName}</strong> has successfully submitted this examination. 
+                          Under institutional anti-malpractice rules, scores and explanations are locked until central verification.
+                        </p>
+                        <div className="p-3.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1.5 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-slate-300 font-bold">
+                            <Clock size={13} className="text-amber-400" />
+                            <span>Awaiting Board Release</span>
+                          </div>
+                          <p className="text-slate-400">
+                            Once released by the center administrator, your score will automatically appear on this portal, and a notification will be dispatched to <strong className="text-white font-mono">{verifiedCandidate.email || 'your registered email'}</strong>.
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-slate-500 italic">
+                          Multiple exam attempts are strictly disabled. To authorize a re-sit, please contact the center invigilator.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-slate-300">
-                    Candidate <strong>{verifiedCandidate.fullName}</strong> has already completed this examination.
-                  </p>
-                  {verifiedCandidate.examResult && (
-                    <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] text-slate-400">Achieved Score:</span>
-                        <div className="font-mono font-black text-lg text-emerald-400">
-                          {verifiedCandidate.examResult.totalScore} / 400 ({verifiedCandidate.examResult.percentage}%)
-                        </div>
-                      </div>
-                      <div className="text-right text-[11px] text-slate-400">
-                        <span>Submitted on:</span>
-                        <div className="text-slate-200 font-medium">
-                          {new Date(verifiedCandidate.examResult.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-slate-400 italic">
-                    Security Policy: Multiple exam attempts are strictly disabled. To authorize a re-sit, please contact the center administrator.
-                  </p>
-                </div>
-              ) : !timeWindowStatus.valid ? (
+                );
+              })() : !timeWindowStatus.valid ? (
                 /* Security Constraint 2: Outside Scheduled Window */
                 <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2 text-rose-300">
                   <div className="flex items-center gap-2 font-bold text-sm">
@@ -462,6 +525,14 @@ export default function CandidateLogin({ onLoginSuccess, onOpenAdminRoster }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ================= APPROVED STUDENT RESULT & REVIEW TRANSCRIPT MODAL ================= */}
+      {showStudentReviewModal && verifiedCandidate && (
+        <StudentResultReviewModal
+          candidate={verifiedCandidate}
+          onClose={() => setShowStudentReviewModal(false)}
+        />
       )}
 
     </div>
