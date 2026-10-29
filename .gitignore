@@ -9,12 +9,15 @@ pids
 *.seed
 *.pid.lock
 
-# Directory for dependencies
+# Dependencies
 node_modules/
 
 # Production build output
 dist/
 build/
+release/
+*.exe
+*.blockmap
 
 # Environment variables
 .env
@@ -22,7 +25,7 @@ build/
 .env.development.local
 .env.production.local
 
-# IDE settings
+# IDE & OS settings
 .vscode/
 .idea/
 *.suo
@@ -30,3 +33,5 @@ build/
 *.njsproj
 *.sln
 *.sw?
+.DS_Store
+Thumbs.db

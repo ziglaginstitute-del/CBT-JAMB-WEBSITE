@@ -87,8 +87,8 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: Math.min(1360, screenWidth),
     height: Math.min(900, screenHeight),
-    minWidth: 1200,
-    minHeight: 800,
+    minWidth: 1024,
+    minHeight: 700,
     title: 'PrepCBT - Standard Offline CBT Examination System',
     backgroundColor: '#0f172a', // Tailwind slate-900
     autoHideMenuBar: true,
@@ -98,7 +98,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: true
+      webSecurity: false // Facilitate local file loading across relative assets
     }
   });
 
@@ -107,17 +107,32 @@ function createMainWindow() {
     mainWindow.show();
   });
 
+  // Safety fallback: Ensure window is visible even if ready-to-show is delayed
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }, 2000);
+
+  // Enable F12 toggle for debugging
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' && input.type === 'keyDown') {
+      mainWindow.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
   // Block opening unverified external windows during CBT session
   mainWindow.webContents.setWindowOpenHandler(() => {
     return { action: 'deny' };
   });
 
   // Determine application load target (Vite dev server or packaged production build)
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL || (process.argv.includes('--dev') ? 'http://localhost:3000' : null);
+  const isDev = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || (isDev ? 'http://localhost:3000' : null);
 
   if (devServerUrl) {
     mainWindow.loadURL(devServerUrl).catch(() => {
-      // Fallback if dev server is starting up or unavailable
       const distPath = path.join(__dirname, '../dist/index.html');
       if (fs.existsSync(distPath)) {
         mainWindow.loadFile(distPath);
@@ -128,7 +143,6 @@ function createMainWindow() {
     if (fs.existsSync(distPath)) {
       mainWindow.loadFile(distPath);
     } else {
-      // Local dev fallback
       mainWindow.loadURL('http://localhost:3000');
     }
   }
@@ -161,17 +175,14 @@ function createMainWindow() {
 // IPC Handlers for Local Database & Examination Utilities
 // ============================================================================
 
-// 1. Read offline database from appData
 ipcMain.handle('load-local-data', async () => {
   return await readOfflineDatabase();
 });
 
-// 2. Save offline database to appData
 ipcMain.handle('save-local-data', async (_event, payload) => {
   return await writeOfflineDatabase(payload);
 });
 
-// 3. Export Question Bank or full system data to USB Flash Drive (.json)
 ipcMain.handle('export-data-usb', async (_event, payload) => {
   if (!mainWindow) return { success: false, error: 'No active window' };
 
@@ -201,7 +212,6 @@ ipcMain.handle('export-data-usb', async (_event, payload) => {
   }
 });
 
-// 4. Import Questions / Candidates from USB Flash Drive (.json)
 ipcMain.handle('import-data-usb', async () => {
   if (!mainWindow) return { success: false, error: 'No active window' };
 
@@ -232,13 +242,11 @@ ipcMain.handle('import-data-usb', async () => {
   }
 });
 
-// 5. Toggle Examination Kiosk / Fullscreen Lockdown Mode
 ipcMain.handle('toggle-kiosk-mode', async (_event, enabled) => {
   const current = applyKioskMode(enabled);
   return { success: true, isKiosk: current };
 });
 
-// 6. Get Electron runtime system info
 ipcMain.handle('get-app-info', async () => {
   return {
     isElectron: true,
