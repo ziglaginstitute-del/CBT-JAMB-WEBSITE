@@ -119,6 +119,20 @@ export default function Header({
                   <span className="hidden md:inline">Candidates</span>
                 </button>
 
+                {/* Subjects & Curriculum */}
+                <button
+                  onClick={() => setActiveTab('subjects')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                    activeTab === 'subjects'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                  title="Create and manage custom curriculum subjects"
+                >
+                  <BookOpen size={16} />
+                  <span className="hidden md:inline">Curriculum</span>
+                </button>
+
                 {/* Gradebook / Results Table */}
                 <button
                   onClick={() => setActiveTab('candidate-results')}

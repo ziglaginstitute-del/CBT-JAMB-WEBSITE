@@ -14,6 +14,8 @@ import ExamSetupModal from './components/ExamSetupModal';
 import InstructionsModal from './components/InstructionsModal';
 import ExamSubmissionSuccess from './components/ExamSubmissionSuccess';
 import AdminPortal from './views/AdminPortal';
+import SubjectManager from './components/SubjectManager';
+import ErrorBoundary from './components/ErrorBoundary';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
   updateCandidate, getScheduledExams, syncFromSupabase,
@@ -31,7 +33,9 @@ const ADMIN_PROTECTED_VIEWS = [
   'question-bank',
   'scheduled-exams',
   'scheduler',
-  'admin-dashboard'
+  'subjects',
+  'admin-dashboard',
+  'admin-portal'
 ];
 
 export default function App() {
@@ -279,99 +283,105 @@ export default function App() {
 
       {/* Main View Router */}
       <main className="flex-1 flex flex-col">
-        {/* PUBLIC FOCUSED CANDIDATE CBT PORTAL (Zero admin traces) */}
-        {currentView === 'login' && (
-          <HomeDashboard
-            onLoginSuccess={handleLaunchCandidateSession}
-          />
-        )}
+        <ErrorBoundary onNavigateHome={() => setCurrentView('login')}>
+          {/* PUBLIC FOCUSED CANDIDATE CBT PORTAL (Zero admin traces) */}
+          {currentView === 'login' && (
+            <HomeDashboard
+              onLoginSuccess={handleLaunchCandidateSession}
+            />
+          )}
 
-        {/* ================= ADMIN PROTECTED VIEWS ================= */}
-        {isAdminAuthenticated && (
-          <>
-            {(currentView === 'admin-portal' || currentView === 'admin-dashboard') && (
-              <AdminPortal
-                onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
-                onDirectLaunchExam={handleDirectLaunchScheduledExam}
-              />
-            )}
+          {/* ================= ADMIN PROTECTED VIEWS ================= */}
+          {isAdminAuthenticated && (
+            <>
+              {(currentView === 'admin-portal' || currentView === 'admin-dashboard') && (
+                <AdminPortal
+                  onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
+                  onDirectLaunchExam={handleDirectLaunchScheduledExam}
+                />
+              )}
 
-            {currentView === 'candidates' && (
-              <CandidateManager
-                onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
-              />
-            )}
+              {currentView === 'candidates' && (
+                <CandidateManager
+                  onDirectLoginCandidate={(cand) => handleLaunchCandidateSession(cand)}
+                />
+              )}
 
-            {currentView === 'candidate-results' && (
-              <CandidateResultsTable />
-            )}
+              {currentView === 'candidate-results' && (
+                <CandidateResultsTable />
+              )}
 
-            {currentView === 'question-bank' && (
-              <QuestionBankManager />
-            )}
+              {currentView === 'question-bank' && (
+                <QuestionBankManager />
+              )}
 
-            {currentView === 'scheduled-exams' && (
-              <ExamScheduler
-                onDirectLaunchExam={handleDirectLaunchScheduledExam}
-              />
-            )}
+              {currentView === 'subjects' && (
+                <SubjectManager />
+              )}
 
-            {currentView === 'practice' && (
-              <PracticeMode
-                onStartMock={() => setIsSetupOpen(true)}
-                onOpenCandidateLogin={() => setCurrentView('login')}
-              />
-            )}
+              {currentView === 'scheduled-exams' && (
+                <ExamScheduler
+                  onDirectLaunchExam={handleDirectLaunchScheduledExam}
+                />
+              )}
 
-            {currentView === 'history' && (
-              <PastHistory
-                historyList={historyList}
-                onClearHistory={handleClearHistory}
-                onStartMock={() => setIsSetupOpen(true)}
-                onReviewAttempt={handleReviewPastAttempt}
-              />
-            )}
-          </>
-        )}
+              {currentView === 'practice' && (
+                <PracticeMode
+                  onStartMock={() => setIsSetupOpen(true)}
+                  onOpenCandidateLogin={() => setCurrentView('login')}
+                />
+              )}
 
-        {/* Live Examination Interface */}
-        {currentView === 'exam' && activeExamConfig && (
-          <ExamInterface
-            examConfig={activeExamConfig}
-            onFinishExam={handleFinishExam}
-            onExitExam={() => setCurrentView('login')}
-          />
-        )}
+              {currentView === 'history' && (
+                <PastHistory
+                  historyList={historyList}
+                  onClearHistory={handleClearHistory}
+                  onStartMock={() => setIsSetupOpen(true)}
+                  onReviewAttempt={handleReviewPastAttempt}
+                />
+              )}
+            </>
+          )}
 
-        {/* Official Withheld Exam Submission Receipt (Anti-Malpractice Protocol) */}
-        {currentView === 'submission-confirmed' && activeExamConfig && (
-          <ExamSubmissionSuccess
-            examConfig={activeExamConfig}
-            candidateEmail={activeExamConfig.candidateEmail}
-            onExitToLogin={() => setCurrentView('login')}
-          />
-        )}
+          {/* Live Examination Interface */}
+          {currentView === 'exam' && activeExamConfig && (
+            <ExamInterface
+              examConfig={activeExamConfig}
+              onFinishExam={handleFinishExam}
+              onExitExam={() => setCurrentView('login')}
+            />
+          )}
 
-        {/* Exam Results & Analytics */}
-        {currentView === 'result' && examResult && (
-          <ResultAnalytics
-            resultData={examResult}
-            onRetake={() => {
-              if (examResult?.examConfig?.isCandidateSession) {
-                setCurrentView('login');
-              } else {
-                setIsSetupOpen(true);
-              }
-            }}
-            onPracticeSubject={() => {
-              if (isAdminAuthenticated) {
-                setCurrentView('practice');
-              } else {
-                setCurrentView('login');
-              }
-            }}
-          />
-        )}
+          {/* Official Withheld Exam Submission Receipt (Anti-Malpractice Protocol) */}
+          {currentView === 'submission-confirmed' && activeExamConfig && (
+            <ExamSubmissionSuccess
+              examConfig={activeExamConfig}
+              candidateEmail={activeExamConfig.candidateEmail}
+              onExitToLogin={() => setCurrentView('login')}
+            />
+          )}
+
+          {/* Exam Results & Analytics */}
+          {currentView === 'result' && examResult && (
+            <ResultAnalytics
+              resultData={examResult}
+              onRetake={() => {
+                if (examResult?.examConfig?.isCandidateSession) {
+                  setCurrentView('login');
+                } else {
+                  setIsSetupOpen(true);
+                }
+              }}
+              onPracticeSubject={() => {
+                if (isAdminAuthenticated) {
+                  setCurrentView('practice');
+                } else {
+                  setCurrentView('login');
+                }
+              }}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer when not taking an exam */}

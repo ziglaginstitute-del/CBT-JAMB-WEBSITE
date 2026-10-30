@@ -9,11 +9,12 @@ import {
   deleteScheduledExam, getQuestionBank,
   syncFromSupabase, getAllSubjects 
 } from '../utils/storage';
+import { SUBJECTS } from '../data/questions';
 import { getTargetQuestionCountForSubject, DEFAULT_MOCK_QUESTION_COUNTS } from '../data/defaultSettings';
 
 export default function ExamScheduler({ onDirectLaunchExam }) {
-  const [exams, setExams] = useState([]);
-  const [allSubjects, setAllSubjects] = useState([]);
+  const [exams, setExams] = useState(() => getScheduledExams());
+  const [allSubjects, setAllSubjects] = useState(() => getAllSubjects());
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [viewingSubmissionsExam, setViewingSubmissionsExam] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -206,29 +207,45 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
 
   // Exam Status Helper
   const getExamStatus = (exam) => {
-    const now = new Date();
-    const start = new Date(exam.startsAt);
-    const end = new Date(exam.endsAt);
+    try {
+      const now = new Date();
+      const start = new Date(exam.startsAt || Date.now());
+      const end = new Date(exam.endsAt || Date.now() + 86400000);
 
-    if (now < start) {
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return { 
+          label: 'Active Now', 
+          color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/40',
+          detail: 'Active Session'
+        };
+      }
+
+      if (now < start) {
+        return { 
+          label: 'Upcoming', 
+          color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+          detail: `Starts ${start.toLocaleDateString()} ${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        };
+      }
+      if (now > end) {
+        return { 
+          label: 'Expired', 
+          color: 'text-slate-400 bg-slate-800 border-slate-700',
+          detail: `Ended ${end.toLocaleDateString()}`
+        };
+      }
       return { 
-        label: 'Upcoming', 
-        color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-        detail: `Starts ${start.toLocaleDateString()} ${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        label: 'Active Now', 
+        color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/40 animate-pulse',
+        detail: `Closes ${end.toLocaleDateString()} ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      };
+    } catch {
+      return { 
+        label: 'Active Now', 
+        color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/40',
+        detail: 'Active Session'
       };
     }
-    if (now > end) {
-      return { 
-        label: 'Expired', 
-        color: 'text-slate-400 bg-slate-800 border-slate-700',
-        detail: `Ended ${end.toLocaleDateString()}`
-      };
-    }
-    return { 
-      label: 'Active Now', 
-      color: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/40 animate-pulse',
-      detail: `Closes ${end.toLocaleDateString()} ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    };
   };
 
   return (
@@ -291,8 +308,9 @@ export default function ExamScheduler({ onDirectLaunchExam }) {
               ? Math.round(exam.submissions.reduce((a, b) => a + (b.totalScore || 0), 0) / totalSubmissions)
               : 0;
 
+            const subjectList = allSubjects && allSubjects.length > 0 ? allSubjects : (SUBJECTS || []);
             const subjectNames = (exam.subjectIds || [])
-              .map(id => SUBJECTS.find(s => s.id === id)?.name || id)
+              .map(id => subjectList.find(s => s.id === id)?.name || id)
               .join(' • ');
 
             return (
