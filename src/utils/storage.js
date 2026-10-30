@@ -21,6 +21,39 @@ const SCHEDULED_EXAMS_KEY = 'prepcbt_scheduled_exams';
 const CANDIDATES_KEY = 'prepcbt_registered_candidates';
 const RESULTS_RELEASED_KEY = 'prepcbt_results_released';
 const CUSTOM_SUBJECTS_KEY = 'prepcbt_custom_subjects';
+const EMAIL_SETTINGS_KEY = 'prepcbt_email_settings';
+
+export const DEFAULT_EMAIL_SETTINGS = {
+  provider: 'resend', // 'resend' | 'emailjs' | 'webhook'
+  resendApiKey: '',
+  resendFrom: 'PrepCBT <onboarding@resend.dev>',
+  emailjsServiceId: '',
+  emailjsTemplateId: '',
+  emailjsPublicKey: '',
+  webhookUrl: '',
+  adminCopyEmail: ''
+};
+
+export const getEmailSettings = () => {
+  try {
+    const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
+    return raw ? { ...DEFAULT_EMAIL_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_EMAIL_SETTINGS };
+  } catch (e) {
+    return { ...DEFAULT_EMAIL_SETTINGS };
+  }
+};
+
+export const saveEmailSettings = (settings) => {
+  try {
+    const merged = { ...DEFAULT_EMAIL_SETTINGS, ...settings };
+    localStorage.setItem(EMAIL_SETTINGS_KEY, JSON.stringify(merged));
+    syncToElectronDisk();
+    return merged;
+  } catch (e) {
+    console.error('Failed to save email settings', e);
+    return DEFAULT_EMAIL_SETTINGS;
+  }
+};
 
 // ============================================================================
 // DYNAMIC SUBJECTS ENGINE (PRE-POPULATED + ADMIN CUSTOM SUBJECTS)
@@ -103,6 +136,7 @@ export const syncToElectronDisk = () => {
         scheduledExams: getScheduledExams(),
         resultsReleased: getGlobalResultsReleased(),
         customSubjects: getCustomSubjects(),
+        emailSettings: getEmailSettings(),
         lastSaved: new Date().toISOString()
       };
       await window.electronAPI.saveData(dump);
@@ -131,6 +165,9 @@ export const initElectronStorage = async () => {
       }
       if (Array.isArray(offlineDb.customSubjects) && offlineDb.customSubjects.length > 0) {
         localStorage.setItem(CUSTOM_SUBJECTS_KEY, JSON.stringify(offlineDb.customSubjects));
+      }
+      if (offlineDb.emailSettings && typeof offlineDb.emailSettings === 'object') {
+        localStorage.setItem(EMAIL_SETTINGS_KEY, JSON.stringify(offlineDb.emailSettings));
       }
       return true;
     } else {

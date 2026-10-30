@@ -23,5 +23,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleKioskMode: (enabled) => ipcRenderer.invoke('toggle-kiosk-mode', enabled),
 
   // Native diagnostic information
-  getAppInfo: () => ipcRenderer.invoke('get-app-info')
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+
+  // Native HTTP Email Dispatcher (Bypasses Browser CORS)
+  sendNativeEmail: (payload) => ipcRenderer.invoke('send-native-email', payload)
 });

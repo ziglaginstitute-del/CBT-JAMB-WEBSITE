@@ -6,6 +6,8 @@
 const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const http = require('http');
 
 let mainWindow = null;
 let isKioskActive = false;
@@ -255,6 +257,174 @@ ipcMain.handle('get-app-info', async () => {
     dbPath: getDbPath(),
     isKiosk: isKioskActive
   };
+});
+
+/**
+ * Universal Native HTTP Dispatcher for Email Delivery
+ * Bypasses all browser CORS restrictions and dispatches directly from Node.js
+ */
+function makeHttpRequest(targetUrl, options, postData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const urlObj = new URL(targetUrl);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+
+      const reqOptions = {
+        method: options.method || 'POST',
+        hostname: urlObj.hostname,
+        port: urlObj.port || (isHttps ? 443 : 80),
+        path: urlObj.pathname + urlObj.search,
+        headers: options.headers || {}
+      };
+
+      const req = client.request(reqOptions, (res) => {
+        let raw = '';
+        res.on('data', chunk => { raw += chunk; });
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            data: raw
+          });
+        });
+      });
+
+      req.on('error', (err) => {
+        reject(err);
+      });
+
+      req.setTimeout(20000, () => {
+        req.destroy();
+        reject(new Error('Network request timed out after 20 seconds. Please check your internet connection.'));
+      });
+
+      if (postData) {
+        req.write(postData);
+      }
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+ipcMain.handle('send-native-email', async (_event, payload) => {
+  const { provider, settings, to, subject, html, text, templateParams } = payload || {};
+
+  if (!to || !to.includes('@')) {
+    return { success: false, error: 'Invalid recipient email address.' };
+  }
+
+  try {
+    if (provider === 'resend') {
+      const apiKey = settings?.resendApiKey?.trim();
+      if (!apiKey) {
+        return { success: false, error: 'Resend API key is not configured. Please enter your API key in Email Settings.' };
+      }
+
+      const fromAddress = settings?.resendFrom?.trim() || 'PrepCBT <onboarding@resend.dev>';
+      const postBody = JSON.stringify({
+        from: fromAddress,
+        to: Array.isArray(to) ? to : [to],
+        subject: subject || 'PrepCBT Examination Statement of Result',
+        html: html || `<pre>${text}</pre>`,
+        text: text || ''
+      });
+
+      const res = await makeHttpRequest('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody)
+        }
+      }, postBody);
+
+      let parsed = {};
+      try { parsed = JSON.parse(res.data); } catch { parsed = { raw: res.data }; }
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return { success: true, provider: 'resend', id: parsed.id };
+      } else {
+        const errorMsg = parsed.message || parsed.error || `HTTP ${res.statusCode}: ${res.data}`;
+        return { success: false, provider: 'resend', error: errorMsg };
+      }
+
+    } else if (provider === 'emailjs') {
+      const serviceId = settings?.emailjsServiceId?.trim();
+      const templateId = settings?.emailjsTemplateId?.trim();
+      const publicKey = settings?.emailjsPublicKey?.trim();
+
+      if (!serviceId || !templateId || !publicKey) {
+        return { success: false, error: 'EmailJS credentials incomplete. Please configure Service ID, Template ID, and Public Key.' };
+      }
+
+      const postBody = JSON.stringify({
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: publicKey,
+        template_params: {
+          to_email: to,
+          to_name: templateParams?.candidateName || 'Candidate',
+          subject: subject,
+          message: text,
+          html_message: html,
+          ...templateParams
+        }
+      });
+
+      const res = await makeHttpRequest('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody)
+        }
+      }, postBody);
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return { success: true, provider: 'emailjs' };
+      } else {
+        return { success: false, provider: 'emailjs', error: `EmailJS responded with error: ${res.data}` };
+      }
+
+    } else if (provider === 'webhook') {
+      const webhookUrl = settings?.webhookUrl?.trim();
+      if (!webhookUrl) {
+        return { success: false, error: 'Webhook / Google Apps Script URL is missing in Email Settings.' };
+      }
+
+      const postBody = JSON.stringify({
+        to,
+        subject,
+        text,
+        html,
+        templateParams,
+        timestamp: new Date().toISOString()
+      });
+
+      const res = await makeHttpRequest(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postBody)
+        }
+      }, postBody);
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return { success: true, provider: 'webhook', data: res.data };
+      } else {
+        return { success: false, provider: 'webhook', error: `Webhook endpoint returned HTTP ${res.statusCode}: ${res.data}` };
+      }
+
+    } else {
+      return { success: false, error: `Unknown email provider: "${provider}". Please choose Resend, EmailJS, or Webhook.` };
+    }
+
+  } catch (err) {
+    console.error('[PrepCBT Native Email Dispatch Error]:', err);
+    return { success: false, error: err.message || 'Network error occurred while connecting to email service.' };
+  }
 });
 
 // ============================================================================

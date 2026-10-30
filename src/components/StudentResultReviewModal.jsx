@@ -5,7 +5,7 @@ import {
   Sparkles, ShieldCheck, Filter
 } from 'lucide-react';
 import { getAllSubjects } from '../utils/storage';
-import { openMailClientForResult } from '../services/emailService';
+import { openMailClientForResult, sendResultEmail } from '../services/emailService';
 import MathText from './MathText';
 
 export default function StudentResultReviewModal({ candidate, onClose }) {
@@ -32,8 +32,23 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
     window.print();
   };
 
-  const handleEmailResult = () => {
-    openMailClientForResult(candidate);
+  const [emailStatus, setEmailStatus] = useState(null); // 'sending' | 'success' | null
+
+  const handleEmailResult = async () => {
+    if (!candidate.email || !candidate.email.includes('@')) {
+      alert('No valid email address registered for this candidate.');
+      return;
+    }
+    try {
+      setEmailStatus('sending');
+      await sendResultEmail(candidate);
+      setEmailStatus('success');
+      setTimeout(() => setEmailStatus(null), 4000);
+    } catch (err) {
+      // Fallback to local mail client
+      openMailClientForResult(candidate);
+      setEmailStatus(null);
+    }
   };
 
   const getSubjectMeta = (subId) => {
@@ -79,11 +94,12 @@ export default function StudentResultReviewModal({ candidate, onClose }) {
             <button
               type="button"
               onClick={handleEmailResult}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition shadow-sm"
+              disabled={emailStatus === 'sending'}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition shadow-sm disabled:opacity-60"
               title="Send performance transcript and breakdown to your email"
             >
               <Mail size={14} />
-              <span>Email Transcript</span>
+              <span>{emailStatus === 'sending' ? 'Sending...' : emailStatus === 'success' ? 'Email Sent!' : 'Email Transcript'}</span>
             </button>
             <button
               type="button"

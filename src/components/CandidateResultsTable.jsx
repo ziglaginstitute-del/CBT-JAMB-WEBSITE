@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, Download, Search, RefreshCw, Filter, 
   CheckCircle2, Clock, AlertTriangle, ArrowUpDown, Award, 
-  ChevronRight, Users, Sparkles, BookOpen, Mail, Send, Lock, Unlock, Eye 
+  ChevronRight, Users, Sparkles, BookOpen, Mail, Send, Lock, Unlock, Eye, Settings 
 } from 'lucide-react';
 import { 
   getCandidates, resetCandidateExam, syncFromSupabase,
@@ -11,6 +11,8 @@ import {
 } from '../utils/storage';
 import SendResultEmailModal from './SendResultEmailModal';
 import StudentResultReviewModal from './StudentResultReviewModal';
+import BulkResultEmailModal from './BulkResultEmailModal';
+import EmailSettingsModal from './EmailSettingsModal';
 
 export default function CandidateResultsTable() {
   const [candidates, setCandidates] = useState([]);
@@ -21,6 +23,8 @@ export default function CandidateResultsTable() {
   const [selectedCandidateDetail, setSelectedCandidateDetail] = useState(null);
   const [candidateToSendEmail, setCandidateToSendEmail] = useState(null);
   const [reviewCandidate, setReviewCandidate] = useState(null);
+  const [isBulkEmailOpen, setIsBulkEmailOpen] = useState(false);
+  const [isEmailSettingsOpen, setIsEmailSettingsOpen] = useState(false);
   const [isGlobalReleased, setIsGlobalReleased] = useState(() => getGlobalResultsReleased());
   const [toastMsg, setToastMsg] = useState(null);
 
@@ -57,13 +61,7 @@ export default function CandidateResultsTable() {
       return;
     }
 
-    // Pick first candidate or prompt
-    if (eligible.length === 1) {
-      setCandidateToSendEmail(eligible[0]);
-    } else {
-      setCandidateToSendEmail(eligible[0]);
-      showToast(`📢 Ready to dispatch results to ${eligible.length} released candidates! First recipient queued.`);
-    }
+    setIsBulkEmailOpen(true);
   };
 
   const handleReset = (candidateId, name) => {
@@ -286,6 +284,15 @@ export default function CandidateResultsTable() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsEmailSettingsOpen(true)}
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700 transition"
+            title="Configure Email Delivery Backend (Resend, EmailJS, Google Apps Script)"
+          >
+            <Settings size={15} />
+          </button>
+
           <button
             type="button"
             onClick={handleNotifyAllReleasedCandidates}
@@ -546,6 +553,32 @@ export default function CandidateResultsTable() {
         <StudentResultReviewModal
           candidate={reviewCandidate}
           onClose={() => setReviewCandidate(null)}
+        />
+      )}
+
+      {/* Bulk Result Email Dispatcher Modal */}
+      {isBulkEmailOpen && (
+        <BulkResultEmailModal
+          candidates={candidates}
+          isGlobalReleased={isGlobalReleased}
+          onClose={() => setIsBulkEmailOpen(false)}
+          onOpenSettings={() => {
+            setIsBulkEmailOpen(false);
+            setIsEmailSettingsOpen(true);
+          }}
+          onCandidateUpdated={(candId) => {
+            updateCandidate(candId, { resultsReleased: true });
+            loadData();
+          }}
+        />
+      )}
+
+      {/* Email Delivery Settings Modal */}
+      {isEmailSettingsOpen && (
+        <EmailSettingsModal
+          isOpen={isEmailSettingsOpen}
+          onClose={() => setIsEmailSettingsOpen(false)}
+          onSaved={() => showToast('Email backend settings updated!')}
         />
       )}
 
