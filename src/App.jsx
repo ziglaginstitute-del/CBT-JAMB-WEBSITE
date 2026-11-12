@@ -260,10 +260,12 @@ export default function App() {
       candidateEmail: candidate.email || '',
       isCandidateSession: true,
       subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
-      durationMinutes: assignedExam ? assignedExam.durationMinutes : (candidate.examType === 'WASSCE' ? 150 : 120),
+      durationMinutes: assignedExam 
+        ? assignedExam.durationMinutes 
+        : (candidate.durationMinutes || (candidate.examType === 'WASSCE' ? 150 : 120)),
       isScheduled: !!assignedExam,
       scheduledExamId: assignedExam ? assignedExam.id : null,
-      questionsBySubject: assignedExam?.questionsBySubject || null
+      questionsBySubject: assignedExam?.questionsBySubject || candidate.questionsBySubject || null
     });
   };
 

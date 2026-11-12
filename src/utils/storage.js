@@ -941,11 +941,24 @@ export const resetCandidateExam = (candidateId) => {
   return false;
 };
 
-export const findCandidateByCredentials = (usernameOrReg, password) => {
-  if (!usernameOrReg || !password) return null;
+export const getAvailableTopicsForSubject = (subId) => {
+  const bank = getQuestionBank();
+  const list = bank[subId] || [];
+  const topicMap = new Map();
+  list.forEach(q => {
+    if (q.topic && q.topic.trim()) {
+      const t = q.topic.trim();
+      topicMap.set(t, (topicMap.get(t) || 0) + 1);
+    }
+  });
+  return Array.from(topicMap.entries()).map(([name, count]) => ({ name, count }));
+};
+
+export const findCandidateByCredentials = (usernameOrEmailOrReg, password) => {
+  if (!usernameOrEmailOrReg || !password) return null;
   const candidates = getCandidates();
   
-  const cleanInput = usernameOrReg.trim().toLowerCase();
+  const cleanInput = usernameOrEmailOrReg.trim().toLowerCase();
   const strippedInput = cleanInput.replace(/[^a-z0-9]/g, '');
 
   const cleanPass = password.trim().toLowerCase();
@@ -954,13 +967,18 @@ export const findCandidateByCredentials = (usernameOrReg, password) => {
   return candidates.find(c => {
     const candUser = (c.username || '').trim().toLowerCase();
     const candUserStripped = candUser.replace(/[^a-z0-9]/g, '');
-    const matchUsername = candUser === cleanInput || (strippedInput.length > 0 && candUserStripped === strippedInput);
+    const candEmail = (c.email || '').trim().toLowerCase();
+
+    // Match Registration Number, Raw username, or Registered Email
+    const matchIdentifier = candUser === cleanInput || 
+      (strippedInput.length > 0 && candUserStripped === strippedInput) ||
+      (candEmail.length > 0 && candEmail === cleanInput);
 
     const candPass = (c.password || '').trim().toLowerCase();
     const candPassStripped = candPass.replace(/[^a-z0-9]/g, '');
     const matchPassword = candPass === cleanPass || (strippedPass.length > 0 && candPassStripped === strippedPass);
 
-    return matchUsername && matchPassword;
+    return matchIdentifier && matchPassword;
   }) || null;
 };
 

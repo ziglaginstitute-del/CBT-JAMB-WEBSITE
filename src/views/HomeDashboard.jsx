@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Key, Lock, User, ShieldCheck, 
   CheckCircle2, ArrowRight, Eye, EyeOff, 
-  AlertCircle, Mail, Clock, Award
+  AlertCircle, Mail, Clock, Award, UserPlus, Sparkles 
 } from 'lucide-react';
 import { 
   findCandidateByCredentials, 
@@ -12,8 +12,10 @@ import {
 } from '../utils/storage';
 import CandidateExamSlipModal from '../components/CandidateExamSlipModal';
 import StudentResultReviewModal from '../components/StudentResultReviewModal';
+import StudentSelfRegistration from '../components/StudentSelfRegistration';
 
 export default function HomeDashboard({ onLoginSuccess }) {
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -122,126 +124,182 @@ export default function HomeDashboard({ onLoginSuccess }) {
     <div className="min-h-[85vh] flex flex-col justify-center items-center px-4 py-8 max-w-5xl mx-auto">
       
       {/* Official CBT Top Seal */}
-      <div className="w-full text-center space-y-2 mb-8">
+      <div className="w-full text-center space-y-2 mb-6">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700/80 text-sky-400 text-xs font-semibold shadow-md">
           <ShieldCheck size={15} />
           <span>PrepCBT Accredited Examination Portal • Federal Standard</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-          Candidate CBT Login Terminal
+          {authMode === 'login' ? 'Candidate CBT Login Terminal' : 'Student Self-Service Registration'}
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-          Enter your official institutional registration number and examination passcode to verify your biometric docket and begin your session.
+          {authMode === 'login'
+            ? 'Enter your official registration number or email address and passcode to verify your docket and begin.'
+            : 'Register your examination profile, select your preferred exam category (JAMB, WASSCE, or Topic Drills), filter topics, and commence testing immediately.'}
         </p>
       </div>
 
-      <div className="w-full max-w-lg mx-auto">
-        
-        {/* Candidate CBT Login Form */}
-        <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-          <div className="flex items-center gap-3 pb-5 border-b border-slate-700/80 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-inner">
-              <Key size={24} className="stroke-[2.2]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">Student Candidate Authentication</h2>
-              <p className="text-xs text-slate-400">Accredited Terminal • Computer-Based Testing Session</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleLoginSubmit} className="space-y-5">
-            {/* Error Banner */}
-            {errorMessage && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5 animate-fadeIn">
-                <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
-                <span className="leading-relaxed">{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Registration Number Input */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300 tracking-wide uppercase">
-                Candidate Registration Number
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <User size={18} />
-                </div>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. JAMB/2026/014 or WAEC/2026/042"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono uppercase"
-                  required
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Enter your official examination registration slip code
-              </p>
-            </div>
-
-            {/* Password / Passcode Input */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300 tracking-wide uppercase">
-                Candidate Passcode
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock size={18} />
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="e.g. PASS-XXXX"
-                  className="w-full pl-10 pr-12 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              
-              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
-                <span>Case-sensitive candidate access code</span>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotHelp(true)}
-                  className="text-sky-400 hover:text-sky-300 underline font-medium"
-                >
-                  Forgot Passcode?
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
-              >
-                <span>Login & Verify Examination Slip</span>
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          </form>
-
-          {/* Biometric & System Security Notice */}
-          <div className="mt-6 pt-5 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={13} className="text-emerald-400" />
-              Accredited Anti-Malpractice Sandbox
-            </span>
-            <span>Version 2026.4</span>
-          </div>
-        </div>
-
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center justify-center gap-2 p-1.5 bg-slate-900/90 border border-slate-700/80 rounded-2xl w-full max-w-md mx-auto mb-8 shadow-xl backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => { setAuthMode('login'); setErrorMessage(''); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            authMode === 'login'
+              ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25 scale-[1.02]'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Key size={15} />
+          <span>Candidate Login</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAuthMode('register'); setErrorMessage(''); }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            authMode === 'register'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25 scale-[1.02]'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <UserPlus size={15} />
+          <span>Register & Take Exam</span>
+        </button>
       </div>
+
+      {/* Main Content Area based on authMode */}
+      {authMode === 'register' ? (
+        <div className="w-full max-w-3xl mx-auto">
+          <StudentSelfRegistration
+            onRegistrationSuccess={(cand) => {
+              setTimeWindowStatus({ valid: true, message: '' });
+              setAssignedExam(null);
+              setVerifiedCandidate(cand);
+            }}
+            onSwitchToLogin={() => setAuthMode('login')}
+          />
+        </div>
+      ) : (
+        <div className="w-full max-w-lg mx-auto">
+          
+          {/* Candidate CBT Login Form */}
+          <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+            <div className="flex items-center gap-3 pb-5 border-b border-slate-700/80 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-inner">
+                <Key size={24} className="stroke-[2.2]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white tracking-tight">Student Candidate Authentication</h2>
+                <p className="text-xs text-slate-400">Accredited Terminal • Computer-Based Testing Session</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleLoginSubmit} className="space-y-5">
+              {/* Error Banner */}
+              {errorMessage && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5 animate-fadeIn">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                  <span className="leading-relaxed">{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Registration Number or Email Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300 tracking-wide uppercase">
+                  Registration Number or Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <User size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. 2026/UTME/014 or student@gmail.com"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Enter your official examination slip code or your registered email address
+                </p>
+              </div>
+
+              {/* Password / Passcode Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300 tracking-wide uppercase">
+                  Candidate Passcode
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="e.g. PASS-XXXX"
+                    className="w-full pl-10 pr-12 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition font-mono"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                
+                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
+                  <span>Case-sensitive candidate access code</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotHelp(true)}
+                    className="text-sky-400 hover:text-sky-300 underline font-medium"
+                  >
+                    Forgot Passcode?
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white shadow-lg shadow-sky-500/25 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
+                >
+                  <span>Login & Verify Examination Slip</span>
+                  <ArrowRight size={18} />
+                </button>
+              </div>
+
+              {/* Switch to self-registration */}
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('register'); setErrorMessage(''); }}
+                  className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1.5 transition"
+                >
+                  <span>New student or want to select specific topics? Register here</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+            </form>
+
+            {/* Biometric & System Security Notice */}
+            <div className="mt-6 pt-5 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-emerald-400" />
+                Accredited Anti-Malpractice Sandbox
+              </span>
+              <span>Version 2026.4</span>
+            </div>
+          </div>
+
+        </div>
+      )}
 
       {/* Verification Slip Modal */}
       {verifiedCandidate && (
