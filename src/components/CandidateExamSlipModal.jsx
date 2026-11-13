@@ -232,6 +232,7 @@ export default function CandidateExamSlipModal({
               <li>Log in to your CBT terminal using your <strong>Registration Number</strong> and confidential <strong>Passcode</strong>.</li>
               <li>Only your assigned {candidate.registeredSubjects?.length || 4} subjects will be presented. The countdown timer runs automatically upon starting.</li>
               <li>Use keyboard shortcuts (<strong>A, B, C, D</strong> to pick options; <strong>N</strong> for next; <strong>P</strong> for previous; <strong>S</strong> to submit).</li>
+              <li><strong>Immediate Results</strong>: If you registered online, your full scores, percentage, and question review with detailed explanations will appear immediately on your screen as soon as you submit!</li>
               <li>Ensure you submit your examination before the scheduled window elapses.</li>
             </ul>
           </div>

@@ -197,6 +197,12 @@ export default function App() {
       timeSpentSeconds
     };
 
+    const isSelfReg = examConfig?.isSelfRegistered || 
+                      examConfig?.showImmediateResult || 
+                      !examConfig?.isScheduled ||
+                      examConfig?.category === 'Online Self-Service' ||
+                      examConfig?.category === 'Targeted Topic Practice';
+
     if (examConfig.isCandidateSession && examConfig.candidateId) {
       recordCandidateSubmission(examConfig.candidateId, {
         totalScore: finalScore,
@@ -206,7 +212,8 @@ export default function App() {
         submittedAt: new Date().toISOString(),
         subjectScores,
         answers,
-        examQuestionsBySubject
+        examQuestionsBySubject,
+        isSelfRegistered: isSelfReg
       });
     }
 
@@ -226,9 +233,13 @@ export default function App() {
     createExamHistoryRecord(historyRecord).catch(e => console.warn('Supabase history write error:', e));
     setExamResult(completedData);
 
-    // Official Anti-Malpractice Protocol: No immediate scores shown to candidates!
-    // Scores are withheld pending central administrative compilation and released to registered email.
-    setCurrentView('submission-confirmed');
+    // Online self-registered students see results immediately on screen!
+    // Center batch exams continue using standard withheld receipt until released.
+    if (isSelfReg) {
+      setCurrentView('result');
+    } else {
+      setCurrentView('submission-confirmed');
+    }
   };
 
   const handleReviewPastAttempt = () => {
@@ -252,13 +263,21 @@ export default function App() {
   const handleLaunchCandidateSession = (candidate, assignedExam = null) => {
     updateCandidate(candidate.id, { status: 'In Progress' });
 
+    const isSelfReg = candidate.isSelfRegistered || 
+                      candidate.category === 'Online Self-Service' || 
+                      candidate.category === 'Targeted Topic Practice' ||
+                      !assignedExam;
+
     handleStartExam({
       examType: candidate.examType || 'JAMB UTME',
       candidateName: candidate.fullName,
       candidateReg: candidate.username,
       candidateId: candidate.id,
       candidateEmail: candidate.email || '',
+      category: candidate.category || 'Online Self-Service',
       isCandidateSession: true,
+      isSelfRegistered: isSelfReg,
+      showImmediateResult: isSelfReg,
       subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
       durationMinutes: assignedExam 
         ? assignedExam.durationMinutes 

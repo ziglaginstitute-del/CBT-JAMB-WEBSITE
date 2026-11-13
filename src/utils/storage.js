@@ -982,6 +982,13 @@ export const findCandidateByCredentials = (usernameOrEmailOrReg, password) => {
   }) || null;
 };
 
+export const findCandidateByEmail = (email) => {
+  if (!email) return null;
+  const candidates = getCandidates();
+  const cleanEmail = email.trim().toLowerCase();
+  return candidates.find(c => (c.email || '').trim().toLowerCase() === cleanEmail) || null;
+};
+
 export const bulkAddCandidates = (newCandidates) => {
   const candidates = getCandidates();
   let added = 0;
@@ -1011,7 +1018,13 @@ export const recordCandidateSubmission = (candidateId, resultData) => {
   const candidates = getCandidates();
   const candidate = candidates.find(c => c.id === candidateId || c.username === candidateId);
   if (candidate) {
-    const isReleased = candidate.resultsReleased ?? getGlobalResultsReleased();
+    const isSelfReg = candidate.isSelfRegistered || 
+                      candidate.category?.toLowerCase().includes('self') || 
+                      candidate.category?.toLowerCase().includes('practice') || 
+                      candidate.category?.toLowerCase().includes('online') ||
+                      resultData.isSelfRegistered;
+
+    const isReleased = isSelfReg ? true : (candidate.resultsReleased ?? getGlobalResultsReleased());
     const finalResultData = {
       ...resultData,
       email: candidate.email || '',
