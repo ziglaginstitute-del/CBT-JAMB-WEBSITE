@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Key, Lock, User, ShieldCheck, 
   CheckCircle2, ArrowRight, Eye, EyeOff, 
@@ -32,6 +32,13 @@ export default function HomeDashboard({ onLoginSuccess }) {
   // Post-Exam Result access states
   const [reviewCandidate, setReviewCandidate] = useState(null);
   const [withheldNoticeCandidate, setWithheldNoticeCandidate] = useState(null);
+
+  // Automatically pop Google Modal if user returned from OAuth redirect
+  useEffect(() => {
+    if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+      setShowGoogleModal(true);
+    }
+  }, []);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
