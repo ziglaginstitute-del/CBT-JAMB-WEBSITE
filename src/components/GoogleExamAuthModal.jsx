@@ -51,7 +51,7 @@ export default function GoogleExamAuthModal({
   const [isCountdownPaused, setIsCountdownPaused] = useState(false);
   const [autoLaunchEnabled, setAutoLaunchEnabled] = useState(true);
 
-  // Check on mount if a Supabase OAuth session exists
+  // Check on mount and listen to Supabase OAuth events
   useEffect(() => {
     if (!isOpen) return;
 
@@ -74,6 +74,22 @@ export default function GoogleExamAuthModal({
     }).catch(err => {
       console.warn('Supabase auth session check notice:', err);
     });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.email) {
+        const email = session.user.email;
+        const name = session.user.user_metadata?.full_name || 
+                     session.user.user_metadata?.name || 
+                     email.split('@')[0];
+        setGoogleEmail(email);
+        setStudentName(name);
+        handleProcessGoogleUser(email, name);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, [isOpen]);
 
   // Countdown timer for automatic sign-in & exam launch
