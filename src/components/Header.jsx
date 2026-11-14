@@ -11,7 +11,9 @@ export default function Header({
   onOpenInstructions, 
   isAdminAuthenticated = false,
   onLockAdminSession,
-  onOpenAdminAuth
+  onOpenAdminAuth,
+  activeStudent = null,
+  onStudentLogout
 }) {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-md">
@@ -78,20 +80,55 @@ export default function Header({
           {/* Navigation Controls */}
           <nav className="flex items-center gap-1.5 sm:gap-2">
             
-            {/* PUBLIC STUDENT VIEW: ONLY Candidate Login is visible */}
+            {/* PUBLIC STUDENT VIEW: Candidate Login or Active Student Dashboard */}
             {!isAdminAuthenticated ? (
               <>
-                <button
-                  onClick={() => setActiveTab('login')}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-sm ${
-                    activeTab === 'login'
-                      ? 'bg-sky-500 text-white shadow-sky-500/30 ring-2 ring-sky-400'
-                      : 'bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25'
-                  }`}
-                >
-                  <Key size={15} />
-                  <span>Candidate Portal</span>
-                </button>
+                {activeStudent ? (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('student-dashboard')}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-sm ${
+                        activeTab === 'student-dashboard'
+                          ? 'bg-sky-500 text-white shadow-sky-500/30 ring-2 ring-sky-400'
+                          : 'bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25'
+                      }`}
+                    >
+                      <GraduationCap size={16} />
+                      <span>My Dashboard</span>
+                    </button>
+
+                    <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                        <div className="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-400 font-bold flex items-center justify-center text-xs">
+                          {activeStudent.fullName?.charAt(0)?.toUpperCase() || 'S'}
+                        </div>
+                        <span className="font-semibold hidden md:inline truncate max-w-[120px]">
+                          {activeStudent.fullName}
+                        </span>
+                      </div>
+                      <button
+                        onClick={onStudentLogout}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-300 text-slate-400 text-xs font-semibold transition flex items-center gap-1"
+                        title="Sign Out"
+                      >
+                        <LogOut size={13} />
+                        <span className="hidden sm:inline">Sign Out</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setActiveTab('login')}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-sm ${
+                      activeTab === 'login'
+                        ? 'bg-sky-500 text-white shadow-sky-500/30 ring-2 ring-sky-400'
+                        : 'bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25'
+                    }`}
+                  >
+                    <Key size={15} />
+                    <span>Candidate Portal</span>
+                  </button>
+                )}
 
                 <button
                   onClick={onOpenInstructions}

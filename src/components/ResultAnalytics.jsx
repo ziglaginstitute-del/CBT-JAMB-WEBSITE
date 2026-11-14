@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { 
   Award, CheckCircle2, XCircle, Clock, RotateCcw, 
-  ChevronRight, BookOpen, AlertCircle, FileText, Check, HelpCircle 
+  ChevronRight, BookOpen, AlertCircle, FileText, Check, HelpCircle,
+  GraduationCap
 } from 'lucide-react';
 import { getWassceGrade } from '../data/questions';
 import { getAllSubjects } from '../utils/storage';
 import MathText from './MathText';
 import Question from './Question';
 
-export default function ResultAnalytics({ resultData, onRetake, onPracticeSubject }) {
+export default function ResultAnalytics({ 
+  resultData, 
+  onRetake, 
+  onPracticeSubject,
+  onGoToDashboard,
+  activeStudent 
+}) {
   const { examConfig, answers, examQuestionsBySubject, timeSpentSeconds } = resultData;
   const { examType, candidateName, candidateReg, subjects } = examConfig;
 
@@ -154,15 +161,27 @@ export default function ResultAnalytics({ resultData, onRetake, onPracticeSubjec
 
         {/* Action Buttons */}
         <div className="mt-8 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {onGoToDashboard && (
+              <button
+                type="button"
+                onClick={onGoToDashboard}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/25 transition hover:scale-[1.02]"
+              >
+                <GraduationCap size={17} />
+                <span>Return to My Student Dashboard</span>
+              </button>
+            )}
             <button
+              type="button"
               onClick={onRetake}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-sky-600/30 transition"
             >
               <RotateCcw size={16} />
-              <span>Retake Mock Exam</span>
+              <span>Take Another Exam</span>
             </button>
             <button
+              type="button"
               onClick={() => window.print()}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold border border-slate-700 transition"
             >

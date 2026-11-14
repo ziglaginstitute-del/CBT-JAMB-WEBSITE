@@ -15,7 +15,7 @@ import StudentResultReviewModal from '../components/StudentResultReviewModal';
 import StudentSelfRegistration from '../components/StudentSelfRegistration';
 import GoogleExamAuthModal from '../components/GoogleExamAuthModal';
 
-export default function HomeDashboard({ onLoginSuccess }) {
+export default function HomeDashboard({ onLoginSuccess, onStudentLogin }) {
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [username, setUsername] = useState('');
@@ -69,6 +69,15 @@ export default function HomeDashboard({ onLoginSuccess }) {
       return;
     }
 
+    // If onStudentLogin is available and candidate already completed an exam or has no batch lock,
+    // immediately log them into their personal Student Dashboard to take more exams and track progress!
+    if (onStudentLogin) {
+      if (candidate.status === 'Completed' || (!candidate.scheduledExamId && candidate.isSelfRegistered)) {
+        onStudentLogin(candidate);
+        return;
+      }
+    }
+
     // Check if candidate already completed their CBT examination
     if (candidate.status === 'Completed') {
       const isSelfReg = candidate.isSelfRegistered || 
@@ -117,11 +126,6 @@ export default function HomeDashboard({ onLoginSuccess }) {
 
   const handleConfirmStartExam = () => {
     if (!verifiedCandidate) return;
-
-    if (verifiedCandidate.status === 'Completed') {
-      setErrorMessage('Exam already completed. Re-sits must be authorized by the center examination officer.');
-      return;
-    }
 
     if (!timeWindowStatus.valid) {
       setErrorMessage(timeWindowStatus.message);
@@ -184,9 +188,13 @@ export default function HomeDashboard({ onLoginSuccess }) {
         <div className="w-full max-w-3xl mx-auto">
           <StudentSelfRegistration
             onRegistrationSuccess={(cand) => {
-              setTimeWindowStatus({ valid: true, message: '' });
-              setAssignedExam(null);
-              setVerifiedCandidate(cand);
+              if (onStudentLogin) {
+                onStudentLogin(cand);
+              } else {
+                setTimeWindowStatus({ valid: true, message: '' });
+                setAssignedExam(null);
+                setVerifiedCandidate(cand);
+              }
             }}
             onSwitchToLogin={() => setAuthMode('login')}
             onOpenGoogleAuth={() => setShowGoogleModal(true)}
@@ -480,6 +488,11 @@ export default function HomeDashboard({ onLoginSuccess }) {
         <GoogleExamAuthModal
           isOpen={true}
           onClose={() => setShowGoogleModal(false)}
+          onStudentLogin={(cand) => {
+            if (onStudentLogin) {
+              onStudentLogin(cand);
+            }
+          }}
           onStartExam={(cand) => {
             onLoginSuccess(cand, null);
           }}

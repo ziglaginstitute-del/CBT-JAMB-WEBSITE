@@ -30,7 +30,8 @@ export default function GoogleExamAuthModal({
   onClose, 
   onStartExam, 
   onViewResults,
-  onViewSlip 
+  onViewSlip,
+  onStudentLogin
 }) {
   const [googleEmail, setGoogleEmail] = useState('');
   const [studentName, setStudentName] = useState('');
@@ -187,18 +188,17 @@ export default function GoogleExamAuthModal({
     let existingCand = findCandidateByEmail(email);
 
     if (existingCand) {
-      // Existing student found
-      if (existingCand.status === 'Completed') {
-        // Exam was already completed -> offer immediate result review
-        setActiveCandidate(existingCand);
-        setStep('completed-notice');
+      // Existing student signed in via Google: immediately grant access to their personal Student Dashboard!
+      if (onStudentLogin) {
+        onStudentLogin(existingCand);
+        onClose();
         return;
       }
 
-      // Existing pending candidate -> show briefing
+      // Fallback if onStudentLogin is not provided
       setActiveCandidate(existingCand);
-      setStep('briefing');
-      setCountdown(6);
+      setStep('completed-notice');
+      return;
     } else {
       // Create new self-registered Google candidate
       const cleanReg = generateCandidateRegNo(examType);
@@ -213,7 +213,7 @@ export default function GoogleExamAuthModal({
         registeredSubjects: selectedSubjects,
         durationMinutes: Number(durationMinutes),
         center: 'PrepCBT Online Portal (Google Verified)',
-        status: 'Pending',
+        status: 'Active',
         isSelfRegistered: true,
         resultsReleased: true // Results will be shown immediately!
       });
@@ -641,17 +641,33 @@ export default function GoogleExamAuthModal({
 
             {/* Actions */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  onViewSlip(activeCandidate);
-                  onClose();
-                }}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 border border-slate-700 transition"
-              >
-                <Printer size={15} />
-                <span>View & Print Official Examination Slip</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onViewSlip(activeCandidate);
+                    onClose();
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 border border-slate-700 transition"
+                >
+                  <Printer size={15} />
+                  <span>Exam Docket</span>
+                </button>
+
+                {onStudentLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onStudentLogin(activeCandidate);
+                      onClose();
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <GraduationCap size={15} />
+                    <span>Open My Student Dashboard</span>
+                  </button>
+                )}
+              </div>
 
               <button
                 type="button"
@@ -666,42 +682,56 @@ export default function GoogleExamAuthModal({
           </div>
         )}
 
-        {/* COMPLETED EXAM NOTICE: Direct Results Access */}
+        {/* COMPLETED EXAM NOTICE: Direct Dashboard & Results Access */}
         {step === 'completed-notice' && activeCandidate && (
           <div className="p-6 sm:p-8 space-y-5 text-center">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
               <Award size={28} />
             </div>
             <div>
-              <h4 className="text-lg font-bold text-white">Examination Already Completed!</h4>
+              <h4 className="text-lg font-bold text-white">Welcome Back, {activeCandidate.fullName}!</h4>
               <p className="text-xs text-slate-400 mt-1">
-                Candidate <strong>{activeCandidate.fullName}</strong> ({activeCandidate.username}) has completed this CBT session.
+                Candidate <strong>{activeCandidate.fullName}</strong> ({activeCandidate.username}). You can view past test records or launch a new exam below.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 max-w-md mx-auto text-xs space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-400">Total Score:</span>
+                <span className="text-slate-400">Latest Aggregate Score:</span>
                 <strong className="text-emerald-400 font-bold text-sm">
                   {activeCandidate.examResult?.totalScore ?? 'N/A'} / {activeCandidate.examResult?.maxScore ?? '400'}
                 </strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Percentage:</span>
+                <span className="text-slate-400">Accuracy:</span>
                 <strong className="text-sky-300 font-bold">{activeCandidate.examResult?.percentage ?? '0'}%</strong>
               </div>
             </div>
 
-            <div className="pt-2 flex justify-center gap-3">
+            <div className="pt-2 flex flex-wrap justify-center gap-3">
+              {onStudentLogin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onStudentLogin(activeCandidate);
+                    onClose();
+                  }}
+                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 rounded-xl text-xs font-black transition shadow-lg shadow-emerald-500/25 flex items-center gap-2 hover:scale-[1.02]"
+                >
+                  <GraduationCap size={15} />
+                  <span>Go to My Student Dashboard (Take More Exams)</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => {
                   onViewResults(activeCandidate);
                   onClose();
                 }}
-                className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-sky-600/30"
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition"
               >
-                View Full Results & Question Review
+                Review Latest Questions
               </button>
             </div>
           </div>

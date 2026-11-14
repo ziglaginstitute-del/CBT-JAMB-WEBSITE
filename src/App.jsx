@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import HomeDashboard from './views/HomeDashboard';
+import StudentDashboard from './views/StudentDashboard';
 import AdminAuthModal from './components/AdminAuthModal';
 import CandidateManager from './components/CandidateManager';
 import CandidateResultsTable from './components/CandidateResultsTable';
@@ -19,7 +20,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { 
   recordExamSubmission, recordCandidateSubmission, 
   updateCandidate, getScheduledExams, syncFromSupabase,
-  initElectronStorage
+  initElectronStorage,
+  getActiveStudentSession, setActiveStudentSession, clearActiveStudentSession
 } from './utils/storage';
 import { createExamHistoryRecord, fetchExamHistory } from './services/supabaseService';
 import { ADMIN_SESSION_STORAGE_KEY } from './data/defaultSettings';
@@ -39,8 +41,14 @@ const ADMIN_PROTECTED_VIEWS = [
 ];
 
 export default function App() {
-  // Primary view defaults strictly to candidate CBT login portal
-  const [currentView, setCurrentView] = useState('login'); // 'login' | 'exam' | 'result' | 'candidates' | 'candidate-results' | 'question-bank' | 'scheduled-exams' | 'practice' | 'history'
+  // Active student candidate session
+  const [activeStudent, setActiveStudent] = useState(() => getActiveStudentSession());
+
+  // Primary view defaults strictly to candidate CBT login portal or student dashboard
+  const [currentView, setCurrentView] = useState(() => {
+    const student = getActiveStudentSession();
+    return student ? 'student-dashboard' : 'login';
+  });
   
   // Administrator authentication state
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => {
@@ -110,7 +118,24 @@ export default function App() {
       return;
     }
 
+    if (viewKey === 'login' && activeStudent) {
+      setCurrentView('student-dashboard');
+      return;
+    }
+
     setCurrentView(viewKey);
+  };
+
+  const handleStudentLogin = (candidate) => {
+    setActiveStudent(candidate);
+    setActiveStudentSession(candidate);
+    setCurrentView('student-dashboard');
+  };
+
+  const handleStudentLogout = () => {
+    setActiveStudent(null);
+    clearActiveStudentSession();
+    setCurrentView('login');
   };
 
   const handleAdminAuthSuccess = () => {
@@ -204,7 +229,7 @@ export default function App() {
                       examConfig?.category === 'Targeted Topic Practice';
 
     if (examConfig.isCandidateSession && examConfig.candidateId) {
-      recordCandidateSubmission(examConfig.candidateId, {
+      const updatedCand = recordCandidateSubmission(examConfig.candidateId, {
         totalScore: finalScore,
         maxScore,
         percentage,
@@ -215,6 +240,11 @@ export default function App() {
         examQuestionsBySubject,
         isSelfRegistered: isSelfReg
       });
+
+      if (updatedCand) {
+        setActiveStudent(updatedCand);
+        setActiveStudentSession(updatedCand);
+      }
     }
 
     if (examConfig.isScheduled && examConfig.scheduledExamId) {
@@ -260,8 +290,10 @@ export default function App() {
   };
 
   // Launch personalized candidate CBT session
-  const handleLaunchCandidateSession = (candidate, assignedExam = null) => {
+  const handleLaunchCandidateSession = (candidate, assignedExam = null, customConfig = null) => {
     updateCandidate(candidate.id, { status: 'In Progress' });
+    setActiveStudent(candidate);
+    setActiveStudentSession(candidate);
 
     const isSelfReg = candidate.isSelfRegistered || 
                       candidate.category === 'Online Self-Service' || 
@@ -269,22 +301,22 @@ export default function App() {
                       !assignedExam;
 
     handleStartExam({
-      examType: candidate.examType || 'JAMB UTME',
+      examType: customConfig?.examType || candidate.examType || 'JAMB UTME',
       candidateName: candidate.fullName,
       candidateReg: candidate.username,
       candidateId: candidate.id,
       candidateEmail: candidate.email || '',
-      category: candidate.category || 'Online Self-Service',
+      category: customConfig?.category || candidate.category || 'Online Self-Service',
       isCandidateSession: true,
       isSelfRegistered: isSelfReg,
       showImmediateResult: isSelfReg,
-      subjects: candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
-      durationMinutes: assignedExam 
+      subjects: customConfig?.subjects || candidate.registeredSubjects || ['english', 'mathematics', 'physics', 'chemistry'],
+      durationMinutes: customConfig?.durationMinutes || (assignedExam 
         ? assignedExam.durationMinutes 
-        : (candidate.durationMinutes || (candidate.examType === 'WASSCE' ? 150 : 120)),
-      isScheduled: !!assignedExam,
-      scheduledExamId: assignedExam ? assignedExam.id : null,
-      questionsBySubject: assignedExam?.questionsBySubject || candidate.questionsBySubject || null
+        : (candidate.durationMinutes || (candidate.examType === 'WASSCE' ? 150 : 120))),
+      isScheduled: !!assignedExam || !!customConfig?.isScheduled,
+      scheduledExamId: assignedExam ? assignedExam.id : (customConfig?.scheduledExamId || null),
+      questionsBySubject: customConfig?.questionsBySubject || assignedExam?.questionsBySubject || candidate.questionsBySubject || null
     });
   };
 
@@ -299,16 +331,28 @@ export default function App() {
           isAdminAuthenticated={isAdminAuthenticated}
           onLockAdminSession={handleLockAdminSession}
           onOpenAdminAuth={() => setIsAdminAuthModalOpen(true)}
+          activeStudent={activeStudent}
+          onStudentLogout={handleStudentLogout}
         />
       )}
 
       {/* Main View Router */}
       <main className="flex-1 flex flex-col">
         <ErrorBoundary onNavigateHome={() => setCurrentView('login')}>
+          {/* DEDICATED STUDENT DASHBOARD & PROGRESS PORTAL */}
+          {currentView === 'student-dashboard' && activeStudent && (
+            <StudentDashboard
+              student={activeStudent}
+              onStartExam={(config) => handleLaunchCandidateSession(activeStudent, null, config)}
+              onLogout={handleStudentLogout}
+            />
+          )}
+
           {/* PUBLIC FOCUSED CANDIDATE CBT PORTAL (Zero admin traces) */}
           {currentView === 'login' && (
             <HomeDashboard
               onLoginSuccess={handleLaunchCandidateSession}
+              onStudentLogin={handleStudentLogin}
             />
           )}
 
@@ -386,15 +430,27 @@ export default function App() {
           {currentView === 'result' && examResult && (
             <ResultAnalytics
               resultData={examResult}
+              activeStudent={activeStudent}
+              onGoToDashboard={() => {
+                if (activeStudent) {
+                  setCurrentView('student-dashboard');
+                } else {
+                  setCurrentView('login');
+                }
+              }}
               onRetake={() => {
-                if (examResult?.examConfig?.isCandidateSession) {
+                if (activeStudent) {
+                  setCurrentView('student-dashboard');
+                } else if (examResult?.examConfig?.isCandidateSession) {
                   setCurrentView('login');
                 } else {
                   setIsSetupOpen(true);
                 }
               }}
               onPracticeSubject={() => {
-                if (isAdminAuthenticated) {
+                if (activeStudent) {
+                  setCurrentView('student-dashboard');
+                } else if (isAdminAuthenticated) {
                   setCurrentView('practice');
                 } else {
                   setCurrentView('login');

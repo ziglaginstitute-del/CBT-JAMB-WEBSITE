@@ -1014,6 +1014,38 @@ export const bulkAddCandidates = (newCandidates) => {
   return newCandidates.length;
 };
 
+export const STUDENT_SESSION_KEY = 'prepcbt_active_student';
+
+export const getActiveStudentSession = () => {
+  try {
+    const raw = localStorage.getItem(STUDENT_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    const candidates = getCandidates();
+    return candidates.find(c => c.id === session.id || c.username === session.username || (c.email && c.email.toLowerCase() === session.email?.toLowerCase())) || session;
+  } catch {
+    return null;
+  }
+};
+
+export const setActiveStudentSession = (student) => {
+  try {
+    if (student) {
+      localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(student));
+    } else {
+      localStorage.removeItem(STUDENT_SESSION_KEY);
+    }
+  } catch (e) {
+    console.warn('Failed to save student session to localStorage', e);
+  }
+};
+
+export const clearActiveStudentSession = () => {
+  try {
+    localStorage.removeItem(STUDENT_SESSION_KEY);
+  } catch {}
+};
+
 export const recordCandidateSubmission = (candidateId, resultData) => {
   const candidates = getCandidates();
   const candidate = candidates.find(c => c.id === candidateId || c.username === candidateId);
@@ -1026,15 +1058,31 @@ export const recordCandidateSubmission = (candidateId, resultData) => {
 
     const isReleased = isSelfReg ? true : (candidate.resultsReleased ?? getGlobalResultsReleased());
     const finalResultData = {
+      id: `attempt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       ...resultData,
+      submittedAt: resultData.submittedAt || new Date().toISOString(),
       email: candidate.email || '',
-      resultsReleased: isReleased
+      resultsReleased: isReleased,
+      examType: resultData.examConfig?.examType || candidate.examType || 'JAMB UTME'
     };
 
-    candidate.status = 'Completed';
+    // Store in multi-attempt examHistory array
+    const history = Array.isArray(candidate.examHistory) ? [...candidate.examHistory] : [];
+    if (candidate.examResult && !history.some(h => (h.id && h.id === candidate.examResult.id) || (h.submittedAt && h.submittedAt === candidate.examResult.submittedAt))) {
+      history.push(candidate.examResult);
+    }
+    candidate.examHistory = [finalResultData, ...history];
     candidate.examResult = finalResultData;
     candidate.resultsReleased = isReleased;
+    candidate.status = 'Completed';
+    candidate.lastActiveAt = new Date().toISOString();
     saveCandidates(candidates);
+
+    // Update active student session if matching
+    const currentSession = getActiveStudentSession();
+    if (currentSession && (currentSession.id === candidate.id || currentSession.username === candidate.username)) {
+      setActiveStudentSession(candidate);
+    }
 
     // Sync to Supabase in real-time
     updateCandidateRecord(candidate.id, { 
