@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Play, CheckCircle2, Clock, BookOpen, 
   User, Mail, Key, ArrowRight, Printer, Pause, 
-  Sparkles, X, Award, AlertCircle, GraduationCap, ChevronRight,
-  ExternalLink, Copy, Check, ChevronDown, ChevronUp, Info, HelpCircle,
-  Settings
+  Sparkles, X, Award, AlertCircle, GraduationCap, ChevronRight
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { 
@@ -44,8 +42,6 @@ export default function GoogleExamAuthModal({
   const [activeCandidate, setActiveCandidate] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-  const [showOAuthGuide, setShowOAuthGuide] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
 
   // Auto-launch countdown timer state
   const [countdown, setCountdown] = useState(6);
@@ -110,12 +106,6 @@ export default function GoogleExamAuthModal({
 
   if (!isOpen) return null;
 
-  const handleCopyCallbackUrl = () => {
-    navigator.clipboard.writeText('https://clsztftzcwagjqgzxsxb.supabase.co/auth/v1/callback');
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 2500);
-  };
-
   // Safe Supabase Google OAuth Trigger - checks provider before full browser redirect
   const handleGoogleOAuthLogin = async () => {
     setIsOAuthLoading(true);
@@ -144,9 +134,8 @@ export default function GoogleExamAuthModal({
             const body = await probe.json().catch(() => ({}));
             if (body?.msg?.includes('provider is not enabled') || body?.error_code === 'validation_failed') {
               setErrorMessage(
-                'Google OAuth provider is not yet enabled in your Supabase backend. Please link Google in your Supabase Dashboard (see setup steps below), OR simply type your Google Email address right below to start immediately!'
+                'Google sign-in is temporarily unavailable. Please type your Google Email address below to start immediately!'
               );
-              setShowOAuthGuide(true);
               setIsOAuthLoading(false);
               return;
             }
@@ -280,15 +269,6 @@ export default function GoogleExamAuthModal({
                 <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
                 <div className="space-y-1">
                   <span>{errorMessage}</span>
-                  {!showOAuthGuide && (
-                    <button
-                      type="button"
-                      onClick={() => setShowOAuthGuide(true)}
-                      className="block text-sky-400 hover:text-sky-300 underline font-semibold mt-1"
-                    >
-                      Click here to view the 2-minute Google OAuth setup guide &gt;
-                    </button>
-                  )}
                 </div>
               </div>
             )}
@@ -310,104 +290,10 @@ export default function GoogleExamAuthModal({
                 <span>{isOAuthLoading ? 'Verifying Google Connection...' : '1-Click Sign in with Google Account'}</span>
               </button>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                <span>Direct OAuth authentication</span>
-                <button
-                  type="button"
-                  onClick={() => setShowOAuthGuide(!showOAuthGuide)}
-                  className="text-sky-400 hover:text-sky-300 flex items-center gap-1 font-semibold transition"
-                >
-                  <HelpCircle size={12} />
-                  <span>{showOAuthGuide ? 'Hide Setup Guide' : 'How to Link Google Account in Supabase'}</span>
-                  {showOAuthGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
+              <div className="text-center text-[11px] text-slate-400">
+                Direct OAuth authentication
               </div>
             </div>
-
-            {/* EXPANDABLE GOOGLE OAUTH BACKEND SETUP GUIDE */}
-            {showOAuthGuide && (
-              <div className="p-4 rounded-2xl bg-slate-950 border border-sky-500/30 space-y-3.5 text-xs text-slate-300 animate-in fade-in duration-200">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-2 font-bold text-white text-xs sm:text-sm">
-                    <Settings size={15} className="text-sky-400" />
-                    <span>How to Enable Google OAuth in Supabase Backend</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowOAuthGuide(false)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  The error <code className="text-amber-300 bg-amber-500/10 px-1 py-0.5 rounded">Unsupported provider: provider is not enabled</code> occurs because Google OAuth hasn't been enabled in your Supabase project yet. Follow these 2 quick steps to link it:
-                </p>
-
-                {/* Step 1: Google Cloud Console */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <div className="font-bold text-white flex items-center justify-between">
-                    <span>1. Google Cloud Console (Get Credentials)</span>
-                    <a
-                      href="https://console.cloud.google.com/apis/credentials"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sky-400 hover:underline flex items-center gap-1 text-[11px]"
-                    >
-                      <span>Open Console</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  </div>
-                  <ul className="list-disc list-inside text-[11px] text-slate-400 space-y-1 ml-1">
-                    <li>Click <strong>+ CREATE CREDENTIALS</strong> &gt; <strong>OAuth client ID</strong> &gt; Application type: <strong>Web application</strong>.</li>
-                    <li>
-                      Under <strong>Authorized redirect URIs</strong>, paste this exact Supabase Callback URL:
-                      <div className="mt-1 flex items-center gap-2">
-                        <code className="text-[10px] bg-slate-950 px-2 py-1 rounded border border-slate-700 text-sky-300 font-mono break-all select-all flex-1">
-                          https://clsztftzcwagjqgzxsxb.supabase.co/auth/v1/callback
-                        </code>
-                        <button
-                          type="button"
-                          onClick={handleCopyCallbackUrl}
-                          className="px-2.5 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold flex items-center gap-1 shrink-0 transition"
-                        >
-                          {copiedUrl ? <Check size={11} /> : <Copy size={11} />}
-                          <span>{copiedUrl ? 'Copied!' : 'Copy URI'}</span>
-                        </button>
-                      </div>
-                    </li>
-                    <li>Click <strong>Create</strong> and copy your new <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
-                  </ul>
-                </div>
-
-                {/* Step 2: Supabase Dashboard */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-slate-900 border border-slate-800">
-                  <div className="font-bold text-white flex items-center justify-between">
-                    <span>2. Supabase Dashboard (Enable Google)</span>
-                    <a
-                      href="https://supabase.com/dashboard/project/clsztftzcwagjqgzxsxb/auth/providers"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sky-400 hover:underline flex items-center gap-1 text-[11px]"
-                    >
-                      <span>Open Supabase Auth</span>
-                      <ExternalLink size={11} />
-                    </a>
-                  </div>
-                  <ul className="list-disc list-inside text-[11px] text-slate-400 space-y-1 ml-1">
-                    <li>In Supabase &gt; Authentication &gt; Providers &gt; find <strong>Google</strong>.</li>
-                    <li>Toggle <strong>Enable Sign in with Google</strong> to <strong>ON</strong>.</li>
-                    <li>Paste your <strong>Client ID</strong> and <strong>Client Secret</strong>, then click <strong>Save</strong>.</li>
-                  </ul>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] flex items-center gap-2">
-                  <CheckCircle2 size={14} className="shrink-0 text-emerald-400" />
-                  <span>Students can also enter their Gmail address below right now without waiting for backend setup!</span>
-                </div>
-              </div>
-            )}
 
             <div className="relative flex items-center justify-center">
               <div className="border-t border-slate-700/80 w-full"></div>
